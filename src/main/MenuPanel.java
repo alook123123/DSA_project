@@ -55,7 +55,7 @@ public class MenuPanel extends JPanel {
                 for (Component comp : mainPanel.getComponents()) {
                     if (comp instanceof Panel) {
                         Panel gamePanel = (Panel) comp;
-                        gamePanel.setBackgroundImage("/background/main2_bg.png"); // Đổi hình nền
+                        gamePanel.setBackgroundImage("/background/main3_bg.png"); // Đổi hình nền
                         gamePanel.startGameThread(); // Bắt đầu game
                     }
                 }
