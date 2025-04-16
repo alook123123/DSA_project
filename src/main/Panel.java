@@ -1,6 +1,7 @@
 
 package main;
 
+import Tile.TileManager;
 import enity.Background.Heart;
 import enity.Bullet;
 import enity.Gun;
@@ -26,6 +27,7 @@ public class Panel extends JPanel implements Runnable {
     public final int boardWidth = maxScreenCol * tileSize;
     public final int boardHeight = maxScreenRow * tileSize;
 
+    private TileManager tileM = new TileManager(this);
 
     // FPS
     final int FPS = 60;
@@ -65,7 +67,7 @@ public class Panel extends JPanel implements Runnable {
         this.addKeyListener(keyHander);
         this.setFocusable(true);
 
-        sound.playLoopedSound("game-music.wav");
+//sound.playLoopedSound("game-music.wav");
 
         // Load the background image
         try {
@@ -233,21 +235,28 @@ public class Panel extends JPanel implements Runnable {
         startTime = 0;
         gameOver = false;
         gameWon = false;
-        sound.playLoopedSound("game-music.wav");
+//sound.playLoopedSound("game-music.wav");
     }
 
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
 
+
+
         // Draw the background image
         if (backgroundImage != null) {
             g2.drawImage(backgroundImage, 0, 0, boardWidth, boardHeight, null);
+
         }
+
+
+        tileM.draw(g2);
         // Draw other game elements
         player.draw(g2);
         heart.draw(g2);
         gun.draw(g2);
+
 
         if (bullets != null) {
             for (int i = 0; i < bullets.size(); i++) {
