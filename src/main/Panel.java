@@ -22,12 +22,13 @@ public class Panel extends JPanel implements Runnable {
     final int originalTileSize = 16;
     final int scale = 3;
     public final int tileSize = originalTileSize * scale;
-    final int maxScreenCol = 30;
-    final int maxScreenRow = 15;
+    public final int maxScreenCol = 30;
+    public final int maxScreenRow = 15;
     public final int boardWidth = maxScreenCol * tileSize;
     public final int boardHeight = maxScreenRow * tileSize;
 
-    private TileManager tileM = new TileManager(this);
+    //Tiles
+    public TileManager tileM = new TileManager(this);
 
     // FPS
     final int FPS = 60;
@@ -35,6 +36,9 @@ public class Panel extends JPanel implements Runnable {
     // System
     KeyHander keyHander = new KeyHander();
     Thread gameThread;
+
+    //Check collision
+    public CollisionChecker cChecker = new CollisionChecker(this);
 
     // Entity and object
     Player player = new Player(this, keyHander);
@@ -173,7 +177,7 @@ public class Panel extends JPanel implements Runnable {
             }
 
 
-            if (System.currentTimeMillis() - startTime >= 20000) {
+            if (System.currentTimeMillis() - startTime >= 200000000) {
                 if (!stopWarriorCreation) {
                     showBossMessage = true; // Kích hoạt thông báo
                     bossMessageStartTime = System.currentTimeMillis();
@@ -252,6 +256,8 @@ public class Panel extends JPanel implements Runnable {
 
 
         tileM.draw(g2);
+        tileM.drawCollisionAreas(g2);
+
         // Draw other game elements
         player.draw(g2);
         heart.draw(g2);

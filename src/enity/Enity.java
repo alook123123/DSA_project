@@ -1,10 +1,12 @@
 package enity;
 
+
 import java.awt.*;
 import java.awt.image.BufferedImage;
 
 public class Enity {
-    Panel panel;
+
+
 
     public int x, y;
     public int speed, speedX,speedY;
@@ -49,6 +51,13 @@ public class Enity {
 
     public Rectangle damageArea = new Rectangle(0,0,0,0);
     public Rectangle attackArea = new Rectangle(0,0,0,0);
+
+
+    public Rectangle collisionArea = new Rectangle(0,0,0,0);
+    public int worldX;
+    public int worldY;
+    public boolean collisionOn = false;
+
 
     public String direction_vertical;
     public String direction_horizontal;

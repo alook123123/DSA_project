@@ -1,5 +1,6 @@
 package enity;
 
+
 import main.KeyHander;
 import main.Panel;
 
@@ -9,13 +10,14 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 
 public class Player extends Enity {
-    public int heart = 4;
-    private int initialX, initialY, maxHealth;
+    public int heart = 10000;
+    public int initialX, initialY, maxHealth;
     private int health;
 
 
     public Panel panel;
     public KeyHander keyHander;
+
 
 
     public Player(Panel panel, KeyHander keyHander) {
@@ -36,11 +38,21 @@ public class Player extends Enity {
         String direction = "standRight";
         x = initialX;
         y = initialY;
-        width = panel.tileSize * 3 / 2;
+        worldX = x;
+        worldY = y;
+
+        width = (panel.tileSize * 3 / 2);
         height = panel.tileSize * 3 / 2;
         speedX = 4;
         speedY = 4;
+        //speed = 4;
         direction_horizontal = "right";
+
+        collisionArea =  new Rectangle();
+        collisionArea.x = 20;
+        collisionArea.y = 35;
+        collisionArea.width = 32;
+        collisionArea.height = 32;
 
         damageArea = new Rectangle(x, y, width, height);
         action = "standRight";
@@ -113,10 +125,18 @@ public class Player extends Enity {
     public void update() {
         damageArea = new Rectangle(x,y,width,height);
 
-        if (keyHander.w_Pressed == true && action != "death") {
+
+        //check tile collision
+        collisionOn = false;
+        panel.cChecker.checkTile(this);
+        //if collision is false, player can move
+
+
+        if (keyHander.w_Pressed == true && action != "death" && !panel.cChecker.isCollisionUp()) {
             count = 1;
             if (y - speedY >= 0) {
                 y -= speedY;
+                worldY = y;
             }
             direction_vertical = "up";
             if (action != "hurt") {
@@ -138,10 +158,11 @@ public class Player extends Enity {
             }
         }
 
-        if (keyHander.s_Pressed == true && action != "death") {
+        if (keyHander.s_Pressed == true && action != "death" && !panel.cChecker.isCollisionDown()) {
             count = 2;
             if (y + speedY + height <= panel.boardHeight) { // Kiểm tra giới hạn dưới
                 y += speedY;
+                worldY = y;
             }
             direction_vertical = "down";
             if (action != "hurt") {
@@ -163,10 +184,11 @@ public class Player extends Enity {
             }
         }
 
-        if (keyHander.a_Pressed == true && action != "death") {
+        if (keyHander.a_Pressed == true && action != "death" && !panel.cChecker.isCollisionLeft()) {
             count = 3;
             if (x - speedX >= 0) { // Kiểm tra giới hạn bên trái
                 x -= speedX;
+                worldX = x;
             }
             direction_horizontal = "left";
             if (action != "hurt") {
@@ -178,10 +200,11 @@ public class Player extends Enity {
             }
         }
 
-        if (keyHander.d_Pressed == true && action != "death") {
+        if (keyHander.d_Pressed == true && action != "death" && !panel.cChecker.isCollisionRight()) {
             count = 4;
             if (x + speedX + width <= panel.boardWidth) { // Kiểm tra giới hạn bên phải
                 x += speedX;
+                worldX = x;
             }
             direction_horizontal = "right";
             if (action != "hurt") {
@@ -192,6 +215,7 @@ public class Player extends Enity {
                 action = "standRight";
             }
         }
+
 
         if (action == "hurt"){
             spriteCounter_14Frame++;
@@ -465,6 +489,17 @@ public class Player extends Enity {
         }
 
         g2.drawImage(image, x, y, width, height, null);
+
+        //draw CollisionArea rectangle
+//        g2.setColor(Color.RED);
+//        g2.drawRect(panel.cChecker.getPlayerLeftWorldX(),
+//                panel.cChecker.getPlayerTopWorldY(),
+//                panel.cChecker.getPlayerRightWorldX()- panel.cChecker.getPlayerLeftWorldX(),
+//                panel.cChecker.getPlayerBottomWorldY() - panel.cChecker.getPlayerTopWorldY());
+
+        //draw damageArea rectangle
+//        g2.drawRect(damageArea.x, damageArea.y, damageArea.width, damageArea.height);
+
 
     }
 

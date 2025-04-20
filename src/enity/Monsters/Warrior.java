@@ -14,7 +14,7 @@ import java.util.Random;
 
 public class Warrior extends Enity {
     int heart = 2;
-    int speed = 10;
+    public int speed = 10;
     int distance_attack = 70;
     private boolean isDead = false;
 
@@ -47,8 +47,8 @@ public class Warrior extends Enity {
             x = rand.nextInt(panel.boardWidth+1);
         }
         else if (randomPosition == 2){
-            y = panel.boardHeight;
-            x = rand.nextInt(panel.boardWidth+1);
+            y = panel.boardHeight - height - 1; // ensure it's inside the playable field
+            x = rand.nextInt(panel.boardWidth - width);
         }
         else if (randomPosition == 3){
             x = panel.boardWidth;
@@ -61,6 +61,13 @@ public class Warrior extends Enity {
 
         attackArea = new Rectangle(x,y,width,height);
         damageArea = new Rectangle(x,y,width,height);
+
+
+        collisionArea =  new Rectangle();
+        collisionArea.x = 30;
+        collisionArea.y = 50;
+        collisionArea.width = 32;
+        collisionArea.height = 32;
     }
 
     public void getWarriorImage(){
@@ -190,6 +197,10 @@ public class Warrior extends Enity {
         if (isDead) {
             return true;
         }
+
+        collisionOn = false;
+        panel.cChecker.checkTileWarrior(this,speedX,speedY);
+
         if (distance_to_playerX >= 0 && distance_to_player > distance_attack) {
             if (!(action == "hurt" || action == "death")) {
                 action = "moveRight";
@@ -224,6 +235,7 @@ public class Warrior extends Enity {
                 player.action = "hurt";
             }
         }
+
         if (!(action == "hurt" || action == "death")) {
             if (action == "moveRight" || action == "moveLeft") {
                 spriteCounter_5Frame++;
@@ -240,8 +252,12 @@ public class Warrior extends Enity {
                         spriteNum_5Frame = 1;
                     }
                     spriteCounter_5Frame = 0;
+                    if(!collisionOn){
                     x += speedX;
+                    worldX = x;
                     y += speedY;
+                    worldY = y;
+                    }
                 }
             }
 
@@ -266,8 +282,13 @@ public class Warrior extends Enity {
                         spriteNum_8Frame = 1;
                     }
                     spriteCounter_8Frame = 0;
-                    x += speedX;
-                    y += speedY;
+                    if (!collisionOn) {
+                        x += speedX;
+                        worldX = x;
+                        y += speedY;
+                        worldY =y;
+                    }
+
                 }
             }
         }
@@ -531,6 +552,15 @@ public class Warrior extends Enity {
 
 
         g2.drawImage(image, x, y, width, height,null);
+
+
+        //Draw collision area
+        g2.setColor(new Color(255, 0, 0, 100));
+        g2.fillRect(x + collisionArea.x, y + collisionArea.y,
+                collisionArea.width, collisionArea.height);
+
+
+
     }
     public Rectangle getDamageArea() {
         return damageArea;
