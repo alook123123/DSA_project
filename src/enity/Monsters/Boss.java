@@ -26,8 +26,8 @@ public class Boss extends Enity {
     KeyHander keyHander;
     Player player;
 
-    private int directionX = 1;
-    private int directionY = 1;
+    public int directionX = 1;
+    public int directionY = 1;
 
     public Boss(Player player) {
         this.panel = player.panel;
@@ -36,6 +36,7 @@ public class Boss extends Enity {
 
         setDefaltValues_Warrior();
         getWarriorImage();
+
         lastAttackTime = System.nanoTime();
         startTime = System.nanoTime();
         direction_horizontal = "right";
@@ -45,6 +46,7 @@ public class Boss extends Enity {
     public void setDefaltValues_Warrior(){
         width = panel.tileSize*2;
         height = panel.tileSize*2;
+
 
         Random rand = new Random();
         int randomPosition = rand.nextInt(4) + 1;
@@ -67,6 +69,12 @@ public class Boss extends Enity {
 
         attackArea = new Rectangle(x,y,width,height);
         damageArea = new Rectangle(x,y,width,height);
+
+        collisionArea =  new Rectangle();
+        collisionArea.x = 30;
+        collisionArea.y = 50;
+        collisionArea.width = 32;
+        collisionArea.height = 32;
     }
 
     public void getWarriorImage(){
@@ -237,15 +245,41 @@ public class Boss extends Enity {
             }
         } else {
 
-            x += speed * directionX;
-            y += speed * directionY;
 
-            if (x <= 0 || x + width >= panel.boardWidth) {
-                directionX *= -1;
+
+//            x += speed * directionX;
+//            y += speed * directionY;
+//
+//            if (x <= 0 || x + width >= panel.boardWidth) {
+//                directionX *= -1;
+//            }
+//            if (y <= 0 || y + height >= panel.boardHeight) {
+//                directionY *= -1;
+//            }
+            int moveX = speed * directionX;
+            int moveY = speed * directionY;
+
+            // Call the tile-based collision check
+            panel.cChecker.checkTileCollisionBoss(this, moveX, moveY);
+
+            // Only move if not blocked
+            if (!collisionOn) {
+                if (x + moveX <= 0 || x + moveX + width >= panel.boardWidth) {
+                    directionX *= -1;
+                }
+                if (y + moveY <= 0 || y + moveY + height >= panel.boardHeight) {
+                    directionY *= -1;
+                }
+                x += moveX;
+                y += moveY;
+                x = Math.max(0, Math.min(x, panel.boardWidth - width));
+                y = Math.max(0, Math.min(y, panel.boardHeight - height));
+
+                worldX = x;
+                worldY = y;
             }
-            if (y <= 0 || y + height >= panel.boardHeight) {
-                directionY *= -1;
-            }
+
+
 
             if (directionX > 0) {
                 action = "moveRight";
@@ -696,5 +730,10 @@ public class Boss extends Enity {
         }
 
         g2.drawImage(image, x, y, width, height,null);
+
+        //Draw collision
+        g2.setColor(Color.RED);
+        g2.drawRect(worldX + collisionArea.x, worldY + collisionArea.y,
+                collisionArea.width, collisionArea.height);
     }
 }

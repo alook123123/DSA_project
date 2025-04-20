@@ -3,6 +3,7 @@ package main;
 // 0 mean can not move
 
 import enity.Enity;
+import enity.Monsters.Boss;
 import enity.Monsters.Warrior;
 import enity.Player;
 
@@ -170,6 +171,44 @@ public class CollisionChecker {
             }
         } catch (ArrayIndexOutOfBoundsException e) {
             warrior.collisionOn = true; // treat out of bounds as solid
+        }
+    }
+
+    public void checkTileCollisionBoss(Boss boss, int moveX, int moveY) {
+        boss.collisionOn = false;
+
+        int futureLeftX = boss.worldX + moveX + boss.collisionArea.x;
+        int futureTopY = boss.worldY + moveY + boss.collisionArea.y;
+        int futureRightX = futureLeftX + boss.collisionArea.width;
+        int futureBottomY = futureTopY + boss.collisionArea.height;
+
+        int leftCol = futureLeftX / panel.tileSize;
+        int rightCol = futureRightX / panel.tileSize;
+        int topRow = futureTopY / panel.tileSize;
+        int bottomRow = futureBottomY / panel.tileSize;
+
+        // Clamp indices
+        leftCol = Math.max(0, Math.min(leftCol, panel.maxScreenCol - 1));
+        rightCol = Math.max(0, Math.min(rightCol, panel.maxScreenCol - 1));
+        topRow = Math.max(0, Math.min(topRow, panel.maxScreenRow - 1));
+        bottomRow = Math.max(0, Math.min(bottomRow, panel.maxScreenRow - 1));
+
+        int tile1 = panel.tileM.mapTileNum[leftCol][topRow];
+        int tile2 = panel.tileM.mapTileNum[rightCol][topRow];
+        int tile3 = panel.tileM.mapTileNum[leftCol][bottomRow];
+        int tile4 = panel.tileM.mapTileNum[rightCol][bottomRow];
+
+        boolean hitWall = panel.tileM.tile[tile1].collision ||
+                panel.tileM.tile[tile2].collision ||
+                panel.tileM.tile[tile3].collision ||
+                panel.tileM.tile[tile4].collision;
+
+        boss.collisionOn = hitWall;
+
+        if (hitWall) {
+            // Bounce back by reversing direction
+            if (moveX != 0) boss.directionX *= -1;
+            if (moveY != 0) boss.directionY *= -1;
         }
     }
 

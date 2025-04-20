@@ -491,11 +491,11 @@ public class Player extends Enity {
         g2.drawImage(image, x, y, width, height, null);
 
         //draw CollisionArea rectangle
-//        g2.setColor(Color.RED);
-//        g2.drawRect(panel.cChecker.getPlayerLeftWorldX(),
-//                panel.cChecker.getPlayerTopWorldY(),
-//                panel.cChecker.getPlayerRightWorldX()- panel.cChecker.getPlayerLeftWorldX(),
-//                panel.cChecker.getPlayerBottomWorldY() - panel.cChecker.getPlayerTopWorldY());
+        g2.setColor(Color.RED);
+        g2.drawRect(panel.cChecker.getPlayerLeftWorldX(),
+                panel.cChecker.getPlayerTopWorldY(),
+                panel.cChecker.getPlayerRightWorldX()- panel.cChecker.getPlayerLeftWorldX(),
+                panel.cChecker.getPlayerBottomWorldY() - panel.cChecker.getPlayerTopWorldY());
 
         //draw damageArea rectangle
 //        g2.drawRect(damageArea.x, damageArea.y, damageArea.width, damageArea.height);
