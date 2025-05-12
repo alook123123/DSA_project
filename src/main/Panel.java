@@ -63,13 +63,20 @@ public class Panel extends JPanel implements Runnable {
 
     private boolean showBossMessage = false; // Trạng thái hiển thị thông báo
     private long bossMessageStartTime = 0;
-
+    
+    public TileManager tileManager;
     public Panel() {
+        tileManager = new TileManager(this);
         this.setPreferredSize(new Dimension(boardWidth, boardHeight));
         this.setBackground(Color.darkGray);
         this.setDoubleBuffered(true);
         this.addKeyListener(keyHander);
         this.setFocusable(true);
+        if (tileManager.mapTileNum == null) {
+            System.out.println("mapTileNum is null in TileManager!");
+        } else {
+            System.out.println("mapTileNum initialized successfully.");
+        }
 
 //sound.playLoopedSound("game-music.wav");
 

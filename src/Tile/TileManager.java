@@ -13,52 +13,49 @@ import java.io.InputStreamReader;
 
 public class TileManager {
 
-   private  MenuPanel gp;
+    private  MenuPanel gp;
 
-   public  Tile[] tile;
-   public int mapTileNum[][];
+    public Tile[] tile;
+    public int mapTileNum[][];
 
-   private int baseX = 0, baseY = 0, offset = 64;
-
-
-   Panel panel;
-   private int width, height;
-
-   public TileManager(Panel panel)
-   {
-       tile = new Tile[10];
-       this.panel = panel;
-
-       mapTileNum = new int[panel.maxScreenCol][panel.maxScreenRow];
-
-       width = panel.tileSize * 4 / 3;
-       height = panel.tileSize * 4 / 3;
-       getTileImage();
-       loadMap("/Mapdata/Map02.txt");
-   }
+    private int baseX = 0, baseY = 0, offset = 64;
 
 
-   public void getTileImage()
-   {
-       try{
-            tile[1] = new Tile();
-            tile[1].image = ImageIO.read(getClass().getResourceAsStream("/tiles/black.png"));
-            tile[1].collision = false;
+    Panel panel;
+    private int width, height;
 
-            tile[0] = new Tile();
-            tile[0].image = ImageIO.read(getClass().getResourceAsStream("/tiles/wall.png"));
-            tile[0].collision = true;
+    public TileManager(Panel panel)
+    {
+        tile = new Tile[10];
+        this.panel = panel;
+
+        mapTileNum = new int[panel.maxScreenCol][panel.maxScreenRow];
+
+        width = panel.tileSize * 4 / 3;
+        height = panel.tileSize * 4 / 3;
+        getTileImage();
+        loadMap("/Mapdata/Map02.txt");
+        }
 
 
+    public void getTileImage()
+    {
+        try{
+                tile[1] = new Tile();
+                tile[1].image = ImageIO.read(getClass().getResourceAsStream("/tiles/black.png"));
+                tile[1].collision = false;
 
-       }catch (IOException e)
-       {
+                tile[0] = new Tile();
+                tile[0].image = ImageIO.read(getClass().getResourceAsStream("/tiles/wall.png"));
+                tile[0].collision = true;
+        }catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
 
-       }
-   }
-
-   public void loadMap(String filePath)
-   {
+    public void loadMap(String filePath)
+    {
         try {
             InputStream  is = getClass().getResourceAsStream(filePath);
             if (is == null) {
@@ -89,33 +86,31 @@ public class TileManager {
         } catch (Exception e) {
 
         }
-   }
+    }
 
-   public  void draw(Graphics2D g2)
-   {
+    public  void draw(Graphics2D g2)
+    {
 
-       int col = 0;
-       int row = 0;
-       int x = 0, y= 0;
-       while (col < panel.maxScreenCol && row < panel.maxScreenRow)
-       {
-           int tileNum = mapTileNum[col][row];
+        int col = 0;
+        int row = 0;
+        int x = 0, y= 0;
+        while (col < panel.maxScreenCol && row < panel.maxScreenRow)
+        {
+            int tileNum = mapTileNum[col][row];
 
-           g2.drawImage(tile[tileNum].image,col * panel.tileSize,row * panel.tileSize,width,height,null);
-           col++;
-           x++;
-           if (col == panel.maxScreenCol)
-           {
-               col = 0;
-               x = 0;
-               row ++;
-               y++;
-           }
-       }
+            g2.drawImage(tile[tileNum].image,col * panel.tileSize,row * panel.tileSize,width,height,null);
+            col++;
+            x++;
+            if (col == panel.maxScreenCol)
+            {
+                col = 0;
+                x = 0;
+                row ++;
+                y++;
+            }
+        }
 
-   }
-
-
+    }
     public void drawCollisionAreas(Graphics2D g2) {
         g2.setColor(new Color(255, 0, 0, 100)); // Semi-transparent red
 
@@ -130,7 +125,5 @@ public class TileManager {
 //                    g2.fillRect(x, y, panel.tileSize, panel.tileSize);
 //                }
 //            }
-        }
-
-
+    }
 }

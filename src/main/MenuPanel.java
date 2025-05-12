@@ -22,8 +22,9 @@ public class MenuPanel extends JPanel {
         // Load background image
         try {
             backgroundImage = ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream("/background/main_bg.png")));
+            System.out.println("Background image loaded: " + backgroundImage);
         } catch (IOException e) {
-            e.printStackTrace();
+            e.printStackTrace();            
         }
 
         // Set layout for centering components

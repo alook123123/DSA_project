@@ -211,7 +211,4 @@ public class CollisionChecker {
             if (moveY != 0) boss.directionY *= -1;
         }
     }
-
-
-
 }
