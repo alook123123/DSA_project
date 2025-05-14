@@ -115,22 +115,40 @@ public class TileManager {
 
    }
 
+/////////////////////////
+    public boolean[][] getWalkableMap() {
+        int cols = panel.maxScreenCol;
+        int rows = panel.maxScreenRow;
+
+        boolean[][] walkableMap = new boolean[cols][rows];
+
+        for (int col = 0; col < cols; col++) {
+            for (int row = 0; row < rows; row++) {
+                int tileIndex = mapTileNum[col][row];
+                walkableMap[col][row] = !tile[tileIndex].collision; //trả về true nếu đi đưọc (collision = false)
+            }
+        }
+
+        return walkableMap;
+    }
+
+
+
 
     public void drawCollisionAreas(Graphics2D g2) {
         g2.setColor(new Color(255, 0, 0, 100)); // Semi-transparent red
 
-        //player wall collision
-//        for (int row = 0; row < panel.maxScreenRow; row++) {
-//            for (int col = 0; col < panel.maxScreenCol; col++) {
-//                int tileNum = mapTileNum[col][row];
-//                if (tile[tileNum].collision) {
-//                    // Draw collision rectangle
-//                    int x = col * panel.tileSize;
-//                    int y = row * panel.tileSize;
-//                    g2.fillRect(x, y, panel.tileSize, panel.tileSize);
-//                }
-//            }
+//        player wall collision
+        for (int row = 0; row < panel.maxScreenRow; row++) {
+            for (int col = 0; col < panel.maxScreenCol; col++) {
+                int tileNum = mapTileNum[col][row];
+                if (tile[tileNum].collision) {
+                    // Draw collision rectangle
+                    int x = col * panel.tileSize;
+                    int y = row * panel.tileSize;
+                    g2.fillRect(x, y, panel.tileSize, panel.tileSize);
+                }
+            }
         }
-
-
+    }
 }
