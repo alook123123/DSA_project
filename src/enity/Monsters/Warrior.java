@@ -6,39 +6,26 @@ import enity.Player;
 import main.KeyHander;
 import main.Panel;
 import enity.Bullet;
+import pathfinding.AStar;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.Random;
-import java.util.List;
 import java.util.ArrayList;
-import java.util.Queue;
-import java.util.LinkedList;
-
-
-class PathNode {
-    int x, y;
-    PathNode parent;
-
-
-
-    public PathNode(int x, int y, PathNode parent) {
-        this.x = x;
-        this.y = y;
-        this.parent = parent;
-    }
-}
+import java.util.List;
+import java.util.Random;
 
 public class Warrior extends Enity {
     int heart = 2;
-    public int speed = 10;
+    public int speed = 700;
     int distance_attack = 70;
     private boolean isDead = false;
     private TileManager tileM;
-    List<PathNode> path_bsf;
+    private List<Point> path;
+    private int pathIndex;
+    private double lastPathUpdate;
+    private static final double PATH_UPDATE_INTERVAL = 0.5;
 
     private long spamMonsterTimer;
 
@@ -50,51 +37,56 @@ public class Warrior extends Enity {
         this.panel = player.panel;
         this.keyHander = player.keyHander;
         this.player = player;
-        this.tileM = panel.tileM;//     Gán tileM từ panel
+        this.tileM = panel.tileM;
 
         setDefaltValues_Warrior();
         getWarriorImage();
 
         direction_horizontal = "right";
         spamMonsterTimer = System.nanoTime();
+        lastPathUpdate = 0;
     }
 
-    public void setDefaltValues_Warrior(){
-        width = panel.tileSize*2;
-        height = panel.tileSize*2;
+    public void setDefaltValues_Warrior() {
+        width = panel.tileSize * 2; // 96
+        height = panel.tileSize * 2; // 96
 
-        //x, y is in pixel
         Random rand = new Random();
         int randomPosition = rand.nextInt(4) + 1;
-        if (randomPosition == 1){
-            y = 0 - height;
-            x = rand.nextInt(panel.boardWidth+1);
-        }
-        else if (randomPosition == 2){
-            y = panel.boardHeight - height - 1; // ensure it's inside the playable field
-            x = rand.nextInt(panel.boardWidth - width);
-        }
-        else if (randomPosition == 3){
-            x = panel.boardWidth;
-            y = rand.nextInt(panel.boardHeight+1);
-        }
-        else if (randomPosition == 4){
-            x = 0 - width;
-            y = rand.nextInt(panel.boardHeight+1);
+
+        // Ensure spawn positions are aligned with tile boundaries and just outside the walkable map
+        int tileSize = panel.tileSize;
+        int maxScreenCol = panel.maxScreenCol; // Number of columns in tile map
+        int maxScreenRow = panel.maxScreenRow; // Number of rows in tile map
+
+        if (randomPosition == 1) { // Top edge
+            y = 0; // Place at the topmost valid tile row
+            x = rand.nextInt(maxScreenCol) * tileSize; // Align with a random tile column
+        } else if (randomPosition == 2) { // Bottom edge
+            y = (maxScreenRow - 2) * tileSize; // Place just inside the bottom edge
+            x = rand.nextInt(maxScreenCol) * tileSize; // Align with a random tile column
+        } else if (randomPosition == 3) { // Right edge
+            x = (maxScreenCol - 1) * tileSize; // Place just inside the rightmost column
+            y = rand.nextInt(maxScreenRow) * tileSize; // Align with a random tile row
+        } else if (randomPosition == 4) { // Left edge
+            x = 0; // Place at the leftmost valid tile column
+            y = rand.nextInt(maxScreenRow) * tileSize; // Align with a random tile row
         }
 
-        attackArea = new Rectangle(x,y,width,height);
-        damageArea = new Rectangle(x,y,width,height);
+        attackArea = new Rectangle(x, y, width, height);
+        damageArea = new Rectangle(x, y, width, height);
 
+        // Center collisionArea within the sprite (96x96)
+        collisionArea = new Rectangle();
+        collisionArea.x = (width - 24) / 2 - 55; // 36
+        collisionArea.y = (height - 24) / 2 - 55; // 36
+        collisionArea.width = 24;
+        collisionArea.height = 24;
 
-        collisionArea =  new Rectangle();
-        collisionArea.x = 30;//30
-        collisionArea.y = 50;//50
-        collisionArea.width = 32;
-        collisionArea.height = 32;
+        action = "moveRight";
     }
 
-    public void getWarriorImage(){
+    public void getWarriorImage() {
         try {
             warriorMoveRight1 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-1.png.png"));
             warriorMoveRight2 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-2.png.png"));
@@ -175,6 +167,7 @@ public class Warrior extends Enity {
             e.printStackTrace();
         }
     }
+
     public void checkCollisionWithBullet(Bullet bullet) {
         if (bullet.isProcessed()) return;
 
@@ -185,147 +178,124 @@ public class Warrior extends Enity {
         }
     }
 
-
     public void takeDamage(int damage) {
         if (isDead) return;
         heart -= damage;
-        action="hurt";
+        action = "hurt";
 
         if (heart <= 0) {
             isDead = true;
         }
     }
 
-
-    public void update1(){
+    public void update1() {
         long currentTime = System.nanoTime();
-        if (currentTime - spamMonsterTimer > 1500000000L) { //quái tạo ra mỗi 15s
+        if (currentTime - spamMonsterTimer > 1000000000L) {
             Panel.warriors.add(new Warrior(this.player));
             spamMonsterTimer = currentTime;
         }
     }
 
-/// //////////////////////////////////////////////////////////
-    public List<PathNode> bfs(int startX, int startY, int goalX, int goalY, boolean[][] walkable) {
-        int cols = walkable.length;       // Số cột     //walkableMap[col][row] = [x][y]
-        int rows = walkable[0].length;    // Số hàng
+    private void updatePath() {
+        int startTileX = (int) (x / panel.tileSize) ;
+        int startTileY = (int) (y / panel.tileSize) ;
+        int goalTileX = (int) (player.x / panel.tileSize);
+        int goalTileY = (int) (player.y / panel.tileSize);
 
-        if (startX < 0 || startY < 0 || startX >= cols || startY >= rows ||
-                goalX < 0 || goalY < 0 || goalX >= cols || goalY >= rows) {
-            return null;
-        }
+//        if (startTileX < 0 || startTileY < 0 || startTileX >= panel.maxScreenCol || startTileY >= panel.maxScreenRow ||
+//                goalTileX < 0 || goalTileY < 0 || goalTileX >= panel.maxScreenCol || goalTileY >= panel.maxScreenRow) {
+//            path = null;
+//            return;
+//        }
 
-        boolean[][] visited = new boolean[cols][rows];
-        Queue<PathNode> queue = new LinkedList<>();
-        queue.add(new PathNode(startX, startY, null));
-        visited[startX][startY] = true;
-
-        int[] dx = {-1, 1, 0, 0}; // trái, phải
-        int[] dy = {0, 0, -1, 1}; // lên, xuống
-
-        while (!queue.isEmpty()) {
-            PathNode current = queue.poll();
-
-            if (current.x == goalX && current.y == goalY) {
-                List<PathNode> path = new ArrayList<>();
-                for (PathNode p = current; p != null; p = p.parent) {
-                    path.add(p);
-                }
-                Collections.reverse(path);
-                return path;
-            }
-
-            for (int i = 0; i < 4; i++) {
-                int nx = current.x + dx[i];
-                int ny = current.y + dy[i];
-
-                if (nx >= 0 && ny >= 0 && nx < cols && ny < rows && walkable[nx][ny] && !visited[nx][ny]) {
-                    visited[nx][ny] = true;
-                    queue.add(new PathNode(nx, ny, current));
-                }
-            }
-        }
-
-        return null; // Không tìm thấy đường đi
+        AStar aStar = new AStar(tileM.getWalkableMap());
+        path = aStar.findPath(startTileX, startTileY, goalTileX, goalTileY);
+        pathIndex = 0;
     }
 
-    /// ////////////// debug only
-//    public void printWalkableMap() {
-//        boolean[][] walkableMap = tileM.getWalkableMap();
-//        int cols = walkableMap.length;
-//        int rows = walkableMap[0].length;
-//
-//        for (int row = 0; row < rows; row++) {
-//            for (int col = 0; col < cols; col++) {
-//                if (walkableMap[col][row]) {
-//                    System.out.print("."); // Có thể đi
-//                } else {
-//                    System.out.print("#"); // Không thể đi
-//                }
-//            }
-//            System.out.println(); // Xuống dòng sau mỗi hàng
-//        }
-//    }
-
-
-
-
-    public boolean update2(){
-        double distance_to_playerX = player.x-x;
-        double distance_to_playerY = player.y-y;
-
-        double distance_to_player = Math.sqrt(Math.pow(distance_to_playerX,2) + Math.pow(distance_to_playerY,2));
-
-        if (distance_to_player == 0){
-            distance_to_player = 1;
+    public boolean update2(double deltaTime) {
+        lastPathUpdate += deltaTime;
+        if (lastPathUpdate >= PATH_UPDATE_INTERVAL) {
+            updatePath();
+            lastPathUpdate = 0;
         }
-        double speedX = (speed/distance_to_player)*distance_to_playerX;
-        double speedY = (speed/distance_to_player)*distance_to_playerY;
 
+        double distance_to_playerX = player.x - x;
+        double distance_to_player = Math.sqrt(distance_to_playerX * distance_to_playerX + (player.y - y) * (player.y - y));
+        /// //////////////////
+        System.out.println("Warrior at: (" + x + ", " + y + ")");
         if (isDead) {
             return true;
         }
 
         collisionOn = false;
-        panel.cChecker.checkTileWarrior(this,speedX,speedY);
+        if (path != null && pathIndex + 1 < path.size()) {
+            Point nextStep = path.get(pathIndex + 1);
+            double targetX = nextStep.x * panel.tileSize+ panel.tileSize / 2.0;
+            double targetY = nextStep.y * panel.tileSize+ panel.tileSize / 2.0;
+
+            System.out.println("Target: (" + targetX + ", " + targetY + ")");
+
+            double deltaX = targetX - x;
+            double deltaY = targetY - y;
+            double moveDistance = speed * deltaTime;
+            double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            if (distance == 0) distance = 1;
+            double proposedX = x + (deltaX / distance) * moveDistance;
+            double proposedY = y + (deltaY / distance) * moveDistance;
+//            System.out.println("proposedX: " + proposedX);
+//            System.out.println("proposedY: " + proposedY);
+
+//            // Giới hạn di chuyển để collisionArea nằm trong ô
+//            int tileX = (int) (proposedX + collisionArea.x + collisionArea.width / 2) / panel.tileSize;
+//            int tileY = (int) (proposedY + collisionArea.y + collisionArea.height / 2) / panel.tileSize;
+//            if (tileX < 0 || tileX >= panel.maxScreenCol || tileY < 0 || tileY >= panel.maxScreenRow ||
+//                    !tileM.getWalkableMap()[tileX][tileY]) {
+//                moveDistance = Math.min(moveDistance, distance - 1); // Giảm di chuyển nếu gần ranh giới
+//                proposedX = x + (deltaX / distance) * moveDistance;
+//                proposedY = y + (deltaY / distance) * moveDistance;
+//            }
+
+            panel.cChecker.checkTileWarrior(this, proposedX - x, proposedY - y);
+        }
+
+        boolean isHurtOrDead = action != null && ("hurt".equals(action) || "death".equals(action));
 
         if (distance_to_playerX >= 0 && distance_to_player > distance_attack) {
-            if (!(action == "hurt" || action == "death")) {
+            if (!isHurtOrDead) {
                 action = "moveRight";
             }
             direction_horizontal = "right";
         } else if (distance_to_playerX < 0 && distance_to_player > distance_attack) {
-            if (!(action == "hurt" || action == "death")) {
+            if (!isHurtOrDead) {
                 action = "moveLeft";
             }
             direction_horizontal = "left";
         } else if (distance_to_playerX >= 0 && distance_to_player <= distance_attack) {
-            if (!(action == "hurt" || action == "death")) {
+            if (!isHurtOrDead) {
                 action = "attack1Right";
             }
             direction_horizontal = "right";
         } else if (distance_to_playerX < 0 && distance_to_player <= distance_attack) {
-            if (!(action == "hurt" || action == "death")) {
+            if (!isHurtOrDead) {
                 action = "attack1Left";
             }
             direction_horizontal = "left";
         }
 
-        attackArea = new Rectangle(x,y,width,height);
-        damageArea = new Rectangle(x,y,width,height);
+        attackArea = new Rectangle(x, y, width, height);
+        damageArea = new Rectangle(x, y, width, height);
 
-
-        if((action == "attack1Right" || action == "attack1Left") && (action != "death") && (player.damageArea.intersects(this.attackArea))){
-            if(player.heart <= 0){
+        if (("attack1Right".equals(action) || "attack1Left".equals(action)) && !"death".equals(action) && player.damageArea.intersects(this.attackArea)) {
+            if (player.heart <= 0) {
                 player.action = "death";
-            }
-            else {
+            } else {
                 player.action = "hurt";
             }
         }
 
-        if (!(action == "hurt" || action == "death")) {
-            if (action == "moveRight" || action == "moveLeft") {
+        if (!isHurtOrDead) {
+            if ("moveRight".equals(action) || "moveLeft".equals(action)) {
                 spriteCounter_5Frame++;
                 if (spriteCounter_5Frame > 12) {
                     if (spriteNum_5Frame == 1) {
@@ -340,70 +310,34 @@ public class Warrior extends Enity {
                         spriteNum_5Frame = 1;
                     }
                     spriteCounter_5Frame = 0;
-                    /// //////////////////////////////////////////////////// update 1
-                    if(!collisionOn) {
-                        x += speedX;
-                        worldX = x;
-                        y += speedY;
-                        worldY = y;
-                    }
-                    else {
-                        // Get tile coordinates
-                        int startTileX = x / panel.tileSize;
-                        int startTileY = y / panel.tileSize;
-                        int goalTileX = player.x / panel.tileSize;
-                        int goalTileY = player.y / panel.tileSize;
 
-                        // Kiểm tra tọa độ tile trước khi tiếp tục BFS
-                        if (startTileX < 0 || startTileY < 0 ||
-                                startTileX >= panel.maxScreenCol || startTileY >= panel.maxScreenRow ||
-                                goalTileX < 0 || goalTileY < 0 ||
-                                goalTileX >= panel.maxScreenCol || goalTileY >= panel.maxScreenRow) {
-                            return true; // Bỏ qua nếu nằm ngoài bản đồ
+                    if (path != null && pathIndex + 1 < path.size() && !collisionOn) {
+                        Point nextStep = path.get(pathIndex + 1);
+                        double targetX = nextStep.x * panel.tileSize + panel.tileSize / 2.0;
+                        double targetY = nextStep.y * panel.tileSize + panel.tileSize / 2.0;
+
+                        double deltaX = targetX - x;
+                        double deltaY = targetY - y;
+                        double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                        if (distance == 0) distance = 1;
+
+                        double moveDistance = speed * deltaTime;
+                        if (distance <= moveDistance) {
+                            x = (int) targetX;
+                            y = (int) targetY;
+                            pathIndex++;
+                        } else {
+                            x += (deltaX / distance) * moveDistance;
+                            y += (deltaY / distance) * moveDistance;
                         }
 
-                        // Prepare the walkable map
-                        boolean[][] walkable = tileM.getWalkableMap(); // You need to implement this
-
-
-                        List<PathNode> path = bfs(startTileX, startTileY, goalTileX, goalTileY, walkable);
-                        path_bsf = path;
-                        if (path != null && path.size() > 1) {
-                            PathNode nextStep = path.get(1); // step after current
-
-                            double targetX = nextStep.x * panel.tileSize + panel.tileSize / 4.0;
-                            double targetY = nextStep.y * panel.tileSize + panel.tileSize /1.5;
-
-                            double deltaX = targetX - x;
-                            double deltaY = targetY - y;
-                            double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                            if (distance == 0) distance = 1;
-
-                            /// /////////////////////////// update
-                            x += (speed / distance) * deltaX;
-                            y += (speed / distance) * deltaY;
-
-                            worldX = x;
-                            worldY = y;
-                            //printWalkableMap();
-
-
-
-//                            panel.cChecker.checkTileWarrior(this, speedX, speedY);
-//                            if (!collisionOn) {
-//                                x += speedX;
-//                                worldX = x;
-//                                y += speedY;
-//                                worldY = y;
-//                            }
-                        }//////////////////////////////////////////////////// end
+                        worldX = x;
+                        worldY = y;
                     }
-
                 }
-
             }
 
-            if (action == "attack1Right" || action == "attack1Left") {
+            if ("attack1Right".equals(action) || "attack1Left".equals(action)) {
                 spriteCounter_8Frame++;
                 if (spriteCounter_8Frame > 12) {
                     if (spriteNum_8Frame == 1) {
@@ -424,69 +358,42 @@ public class Warrior extends Enity {
                         spriteNum_8Frame = 1;
                     }
                     spriteCounter_8Frame = 0;
-                    ////////////////////////////////////////// update 2
-                    if (!collisionOn) {
-                        x += speedX;
+
+                    if (path != null && pathIndex + 1 < path.size() && !collisionOn) {
+                        Point nextStep = path.get(pathIndex + 1);
+                        double targetX = nextStep.x * panel.tileSize + panel.tileSize / 2.0;
+                        double targetY = nextStep.y * panel.tileSize + panel.tileSize / 2.0;
+
+                        double deltaX = targetX - x;
+                        double deltaY = targetY - y;
+                        double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                        if (distance == 0) distance = 1;
+
+                        double moveDistance = speed * deltaTime;
+                        if (distance <= moveDistance) {
+                            x = (int) targetX;
+                            y = (int) targetY;
+                            pathIndex++;
+                        } else {
+                            x += (deltaX / distance) * moveDistance;
+                            y += (deltaY / distance) * moveDistance;
+                        }
+
                         worldX = x;
-                        y += speedY;
-                        worldY =y;
+                        worldY = y;
                     }
-                    /// ///////////////////
-                    else  {
-                        // Get tile coordinates
-                        int startTileX = x / panel.tileSize;
-                        int startTileY = y / panel.tileSize;
-                        int goalTileX = player.x / panel.tileSize;
-                        int goalTileY = player.y / panel.tileSize;
-
-                        // Kiểm tra tọa độ tile trước khi tiếp tục BFS
-                        if (startTileX < 0 || startTileY < 0 ||
-                                startTileX >= panel.maxScreenCol || startTileY >= panel.maxScreenRow ||
-                                goalTileX < 0 || goalTileY < 0 ||
-                                goalTileX >= panel.maxScreenCol || goalTileY >= panel.maxScreenRow) {
-                            return true; // Bỏ qua nếu nằm ngoài bản đồ
-                        }
-
-                        // Prepare the walkable map
-                        boolean[][] walkable = tileM.getWalkableMap(); // You need to implement this
-
-
-                        List<PathNode> path = bfs(startTileX, startTileY, goalTileX, goalTileY, walkable);
-
-                        if (path != null && path.size() > 1) {
-                            PathNode nextStep = path.get(1); // step after current
-
-                            double targetX = nextStep.x * panel.tileSize + panel.tileSize / 4.0;
-                            double targetY = nextStep.y * panel.tileSize + panel.tileSize / 1.5;
-
-                            double deltaX = targetX - x;
-                            double deltaY = targetY - y;
-                            double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-                            if (distance == 0) distance = 1;
-
-                            /// /////////////////////////// update
-                            x += (speed / distance) * deltaX;
-                            y += (speed / distance) * deltaY;
-
-                            worldX = x;
-                            worldY = y;
-                        }
-                        }
-                    /// //////////////////
-
                 }
             }
         }
-        if (action == "hurt"){
+
+        if ("hurt".equals(action)) {
             spriteCounter_3Frame++;
             if (spriteCounter_3Frame > 8) {
                 if (spriteNum_3Frame == 1) {
                     spriteNum_3Frame = 2;
-                }
-                else if (spriteNum_3Frame == 2) {
+                } else if (spriteNum_3Frame == 2) {
                     spriteNum_3Frame = 3;
-                }
-                else if (spriteNum_3Frame == 3) {
+                } else if (spriteNum_3Frame == 3) {
                     spriteNum_3Frame = 1;
                     action = "moveRight";
                 }
@@ -494,7 +401,7 @@ public class Warrior extends Enity {
             }
         }
 
-        if( action == "death" ){
+        if ("death".equals(action)) {
             spriteCounter_13Frame++;
             if (spriteCounter_13Frame > 15) {
                 if (spriteNum_13Frame == 1) {
@@ -520,7 +427,7 @@ public class Warrior extends Enity {
                 } else if (spriteNum_13Frame == 11) {
                     spriteNum_13Frame = 12;
                 } else if (spriteNum_13Frame == 12) {
-                    spriteNum_14Frame = 13;
+                    spriteNum_13Frame = 13;
                 } else if (spriteNum_13Frame == 13) {
                     spriteNum_13Frame = 1;
                 }
@@ -531,101 +438,101 @@ public class Warrior extends Enity {
         return false;
     }
 
-    public void draw(Graphics2D g2){
+    public void draw(Graphics2D g2) {
         BufferedImage image = null;
 
-        if (action == "moveRight") {
-            if (spriteNum_5Frame == 1){
+        if ("moveRight".equals(action)) {
+            if (spriteNum_5Frame == 1) {
                 image = warriorMoveRight1;
             }
-            if (spriteNum_5Frame == 2){
+            if (spriteNum_5Frame == 2) {
                 image = warriorMoveRight2;
             }
-            if (spriteNum_5Frame == 3){
+            if (spriteNum_5Frame == 3) {
                 image = warriorMoveRight3;
             }
-            if (spriteNum_5Frame == 4){
+            if (spriteNum_5Frame == 4) {
                 image = warriorMoveRight4;
             }
-            if (spriteNum_5Frame == 5){
+            if (spriteNum_5Frame == 5) {
                 image = warriorMoveRight5;
             }
         }
 
-        if (action == "moveLeft") {
-            if (spriteNum_5Frame == 1){
+        if ("moveLeft".equals(action)) {
+            if (spriteNum_5Frame == 1) {
                 image = warriorMoveLeft1;
             }
-            if (spriteNum_5Frame == 2){
+            if (spriteNum_5Frame == 2) {
                 image = warriorMoveLeft2;
             }
-            if (spriteNum_5Frame == 3){
+            if (spriteNum_5Frame == 3) {
                 image = warriorMoveLeft3;
             }
-            if (spriteNum_5Frame == 4){
+            if (spriteNum_5Frame == 4) {
                 image = warriorMoveLeft4;
             }
-            if (spriteNum_5Frame == 5){
+            if (spriteNum_5Frame == 5) {
                 image = warriorMoveLeft5;
             }
         }
 
-        if (action == "attack1Right") {
-            if (spriteNum_8Frame == 1){
+        if ("attack1Right".equals(action)) {
+            if (spriteNum_8Frame == 1) {
                 image = warriorAttack1Right1;
             }
-            if (spriteNum_8Frame == 2){
+            if (spriteNum_8Frame == 2) {
                 image = warriorAttack1Right2;
             }
-            if (spriteNum_8Frame == 3){
+            if (spriteNum_8Frame == 3) {
                 image = warriorAttack1Right3;
             }
-            if (spriteNum_8Frame == 4){
+            if (spriteNum_8Frame == 4) {
                 image = warriorAttack1Right4;
             }
-            if (spriteNum_8Frame == 5){
+            if (spriteNum_8Frame == 5) {
                 image = warriorAttack1Right5;
             }
-            if (spriteNum_8Frame == 6){
+            if (spriteNum_8Frame == 6) {
                 image = warriorAttack1Right6;
             }
-            if (spriteNum_8Frame == 7){
+            if (spriteNum_8Frame == 7) {
                 image = warriorAttack1Right7;
             }
-            if (spriteNum_8Frame == 8){
+            if (spriteNum_8Frame == 8) {
                 image = warriorAttack1Right8;
             }
         }
 
-        if (action == "attack1Left") {
-            if (spriteNum_8Frame == 1){
+        if ("attack1Left".equals(action)) {
+            if (spriteNum_8Frame == 1) {
                 image = warriorAttack1Left1;
             }
-            if (spriteNum_8Frame == 2){
+            if (spriteNum_8Frame == 2) {
                 image = warriorAttack1Left2;
             }
-            if (spriteNum_8Frame == 3){
+            if (spriteNum_8Frame == 3) {
                 image = warriorAttack1Left3;
             }
-            if (spriteNum_8Frame == 4){
+            if (spriteNum_8Frame == 4) {
                 image = warriorAttack1Left4;
             }
-            if (spriteNum_8Frame == 5){
+            if (spriteNum_8Frame == 5) {
                 image = warriorAttack1Left5;
             }
-            if (spriteNum_8Frame == 6){
+            if (spriteNum_8Frame == 6) {
                 image = warriorAttack1Left6;
             }
-            if (spriteNum_8Frame == 7){
+            if (spriteNum_8Frame == 7) {
                 image = warriorAttack1Left7;
             }
-            if (spriteNum_8Frame == 8){
+            if (spriteNum_8Frame == 8) {
                 image = warriorAttack1Left8;
             }
         }
 
-        if (action == "hurt"){
-            if (direction_horizontal == "right") {
+        if ("hurt".equals(action)) {
+            if ("right".equals(direction_horizontal)) {
                 if (spriteNum_3Frame == 1) {
                     image = warriorHurtRight;
                 }
@@ -636,7 +543,7 @@ public class Warrior extends Enity {
                     image = warriorHurtRight;
                 }
             }
-            if (direction_horizontal == "left") {
+            if ("left".equals(direction_horizontal)) {
                 if (spriteNum_3Frame == 1) {
                     image = warriorHurtLeft;
                 }
@@ -649,8 +556,8 @@ public class Warrior extends Enity {
             }
         }
 
-        if (action == "death") {
-            if (direction_horizontal == "right") {
+        if ("death".equals(action)) {
+            if ("right".equals(direction_horizontal)) {
                 if (spriteNum_13Frame == 1) {
                     image = warriorDeathRight1;
                 }
@@ -691,7 +598,7 @@ public class Warrior extends Enity {
                     image = warriorDeathRight13;
                 }
             }
-            if (direction_horizontal == "left") {
+            if ("left".equals(direction_horizontal)) {
                 if (spriteNum_13Frame == 1) {
                     image = warriorDeathLeft1;
                 }
@@ -734,33 +641,23 @@ public class Warrior extends Enity {
             }
         }
 
+        g2.drawImage(image, x - 55, y - 55, width, height, null);
 
+        g2.setColor(new Color(195, 154, 154, 100));
+        g2.fillRect(x + collisionArea.x, y + collisionArea.y, collisionArea.width, collisionArea.height);
 
-        g2.drawImage(image, x, y, width, height,null);
-
-
-        //Draw collision area
-        g2.setColor(new Color(255, 0, 0, 100));
-        g2.fillRect(x + collisionArea.x, y + collisionArea.y,
-                collisionArea.width, collisionArea.height);
-
-
-        ///  ////////////////////////////////////
-        if (path_bsf != null) {
-            for (PathNode node : path_bsf) {
+        if (path != null) {
+            for (Point node : path) {
                 int tileX = node.x;
                 int tileY = node.y;
-
                 int screenX = tileX * panel.tileSize;
                 int screenY = tileY * panel.tileSize;
-
-                g2.setColor(new Color(0, 255, 157, 128)); // Màu đỏ, trong suốt
+                g2.setColor(new Color(0, 255, 157, 128));
                 g2.fillRect(screenX, screenY, panel.tileSize, panel.tileSize);
             }
         }
-
-
     }
+
     public Rectangle getDamageArea() {
         return damageArea;
     }

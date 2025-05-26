@@ -1,4 +1,3 @@
-
 package main;
 
 import Tile.TileManager;
@@ -27,7 +26,7 @@ public class Panel extends JPanel implements Runnable {
     public final int boardWidth = maxScreenCol * tileSize;
     public final int boardHeight = maxScreenRow * tileSize;
 
-    //Tiles
+    // Tiles
     public TileManager tileM = new TileManager(this);
 
     // FPS
@@ -37,7 +36,7 @@ public class Panel extends JPanel implements Runnable {
     KeyHander keyHander = new KeyHander();
     Thread gameThread;
 
-    //Check collision
+    // Check collision
     public CollisionChecker cChecker = new CollisionChecker(this);
 
     // Entity and object
@@ -71,7 +70,7 @@ public class Panel extends JPanel implements Runnable {
         this.addKeyListener(keyHander);
         this.setFocusable(true);
 
-//sound.playLoopedSound("game-music.wav");
+        // sound.playLoopedSound("game-music.wav");
 
         // Load the background image
         try {
@@ -85,6 +84,7 @@ public class Panel extends JPanel implements Runnable {
         super.addNotify();
         this.requestFocusInWindow();
     }
+
     public void startGameThread() {
         if (gameThread == null || !gameThread.isAlive()) {
             gameThread = new Thread(this);
@@ -97,7 +97,7 @@ public class Panel extends JPanel implements Runnable {
         bullets = new ArrayList<Bullet>();
         warriors = new ArrayList<Warrior>();
 
-        double drawInterval = 1000000000 / FPS;
+        double drawInterval = 1000000000.0 / FPS;
         double delta = 0;
         long lastTime = System.nanoTime();
         long currentTime;
@@ -108,14 +108,14 @@ public class Panel extends JPanel implements Runnable {
             lastTime = currentTime;
 
             if (delta >= 1) {
-                update();
+                update(delta / FPS); // Pass deltaTime as seconds per frame
                 repaint();
                 delta--;
             }
         }
     }
 
-    public void update() {
+    public void update(double deltaTime) {
         if (gameOver || gameWon) {
             if (keyHander.enter_Pressed) {
                 resetGame();
@@ -132,7 +132,7 @@ public class Panel extends JPanel implements Runnable {
 
         // When player is alive
         if (!player.action.equals("death")) {
-           gun.update();
+            gun.update();
             bullet.update1();
 
             if (!stopWarriorCreation) {
@@ -140,7 +140,7 @@ public class Panel extends JPanel implements Runnable {
             }
 
             if (showBossMessage) {
-                if (System.currentTimeMillis() - bossMessageStartTime >= 2000) { // Hiển thị trong 3 giây
+                if (System.currentTimeMillis() - bossMessageStartTime >= 2000) { // Hiển thị trong 2 giây
                     showBossMessage = false; // Ẩn thông báo
                 }
             }
@@ -166,7 +166,7 @@ public class Panel extends JPanel implements Runnable {
 
             for (int i = 0; i < warriors.size(); i++) {
                 Warrior warrior = warriors.get(i);
-                if (warrior.update2()) {
+                if (warrior.update2(deltaTime)) { // Pass deltaTime to Warrior.update2
                     warriors.remove(i);
                     i--;
                 }
@@ -175,7 +175,6 @@ public class Panel extends JPanel implements Runnable {
             if (startTime == 0) {
                 startTime = System.currentTimeMillis();
             }
-
 
             if (System.currentTimeMillis() - startTime >= 2000000) {
                 if (!stopWarriorCreation) {
@@ -194,6 +193,7 @@ public class Panel extends JPanel implements Runnable {
             activeBoss = null;
             gameOver = true; // Đánh dấu game over
         }
+
         if (activeBoss != null) {
             for (Bullet bullet : bullets) {
                 activeBoss.checkCollisionWithBullet(bullet);
@@ -239,21 +239,17 @@ public class Panel extends JPanel implements Runnable {
         startTime = 0;
         gameOver = false;
         gameWon = false;
-//sound.playLoopedSound("game-music.wav");
+        // sound.playLoopedSound("game-music.wav");
     }
 
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
 
-
-
         // Draw the background image
         if (backgroundImage != null) {
             g2.drawImage(backgroundImage, 0, 0, boardWidth, boardHeight, null);
-
         }
-
 
         tileM.draw(g2);
         tileM.drawCollisionAreas(g2);
@@ -262,7 +258,6 @@ public class Panel extends JPanel implements Runnable {
         player.draw(g2);
         heart.draw(g2);
         gun.draw(g2);
-
 
         if (bullets != null) {
             for (int i = 0; i < bullets.size(); i++) {
@@ -291,7 +286,7 @@ public class Panel extends JPanel implements Runnable {
             g2.setFont(new Font("Arial", Font.BOLD, 60));
             g2.drawString("GAME OVER", boardWidth / 2 - 180, boardHeight / 2);
             g2.setFont(new Font("Arial", Font.ITALIC, 30));
-            g2.drawString("Enter to restart", boardWidth / 2 - 100, boardHeight / 2+70);
+            g2.drawString("Enter to restart", boardWidth / 2 - 100, boardHeight / 2 + 70);
         }
 
         if (gameWon) {
@@ -299,10 +294,9 @@ public class Panel extends JPanel implements Runnable {
             g2.setFont(new Font("Arial", Font.BOLD, 60));
             g2.drawString("VICTORY", boardWidth / 2 - 180, boardHeight / 2);
             g2.setFont(new Font("Arial", Font.ITALIC, 30));
-            g2.drawString("Enter to restart", boardWidth / 2 - 145, boardHeight / 2+70);
+            g2.drawString("Enter to restart", boardWidth / 2 - 145, boardHeight / 2 + 70);
         }
 
         g2.dispose();
     }
 }
-
