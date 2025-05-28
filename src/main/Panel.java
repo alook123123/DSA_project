@@ -1,6 +1,6 @@
-
 package main;
 
+import Tile.TileManager;
 import enity.Background.Heart;
 import enity.Bullet;
 import enity.Gun;
@@ -16,16 +16,22 @@ import java.util.ArrayList;
 import java.util.Objects;
 
 public class Panel extends JPanel implements Runnable {
-
+    private Main mainFrame;
     // SCREEN SETTING
     final int originalTileSize = 16;
     final int scale = 3;
     public final int tileSize = originalTileSize * scale;
-    final int maxScreenCol = 30;
-    final int maxScreenRow = 15;
+    public final int maxScreenCol = 20;
+    public final int maxScreenRow = 14;
     public final int boardWidth = maxScreenCol * tileSize;
     public final int boardHeight = maxScreenRow * tileSize;
 
+    // Tiles
+    public TileManager tileM = new TileManager(this);
+
+    // viewpoint (Camera)
+    public int viewpointX = 0;
+    public int viewpointY = 0;
 
     // FPS
     final int FPS = 60;
@@ -34,12 +40,15 @@ public class Panel extends JPanel implements Runnable {
     KeyHander keyHander = new KeyHander();
     Thread gameThread;
 
+    // Check collision
+    public CollisionChecker cChecker = new CollisionChecker(this);
+
     // Entity and object
     Player player = new Player(this, keyHander);
     Heart heart = new Heart(player);
     Gun gun = new Gun(player);
     Bullet bullet = new Bullet(gun);
-    Warrior warrior = new Warrior(player);
+    Warrior warrior = new Warrior(player, tileM);
 
     public static ArrayList<Bullet> bullets;
     public static ArrayList<Warrior> warriors;
@@ -55,21 +64,24 @@ public class Panel extends JPanel implements Runnable {
 
     private Sound sound = new Sound();
 
-    private boolean showBossMessage = false; // Trạng thái hiển thị thông báo
+    private boolean showBossMessage = false;
     private long bossMessageStartTime = 0;
 
-    public Panel() {
+    public Panel(JPanel mainPanel, CardLayout cardLayout, Main mainFrame) {
+        this.mainFrame = mainFrame;
+
+        tileM = new TileManager(this);
         this.setPreferredSize(new Dimension(boardWidth, boardHeight));
         this.setBackground(Color.darkGray);
         this.setDoubleBuffered(true);
         this.addKeyListener(keyHander);
         this.setFocusable(true);
-
-        sound.playLoopedSound("game-music.wav");
+        // sound.playLoopedSound("game-music.wav");
 
         // Load the background image
         try {
-            backgroundImage = ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream("/background/main_bg.png")));
+            backgroundImage = ImageIO
+                    .read(Objects.requireNonNull(getClass().getResourceAsStream("/background/main_bg.png")));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -79,10 +91,19 @@ public class Panel extends JPanel implements Runnable {
         super.addNotify();
         this.requestFocusInWindow();
     }
+
     public void startGameThread() {
         if (gameThread == null || !gameThread.isAlive()) {
             gameThread = new Thread(this);
             gameThread.start();
+        }
+    }
+
+    public void setMapType(String mapType) {
+        if (tileM != null) {
+            tileM.setMap(mapType);
+        } else {
+            System.err.println("tileM is null in setMapType!");
         }
     }
 
@@ -126,7 +147,7 @@ public class Panel extends JPanel implements Runnable {
 
         // When player is alive
         if (!player.action.equals("death")) {
-           gun.update();
+            gun.update();
             bullet.update1();
 
             if (!stopWarriorCreation) {
@@ -141,20 +162,19 @@ public class Panel extends JPanel implements Runnable {
 
             for (int i = 0; i < bullets.size(); i++) {
                 Bullet bullet = bullets.get(i);
-                for (int j = 0; j < warriors.size(); j++) {
-                    Warrior warrior = warriors.get(j);
+                // Kiểm tra va chạm với warriors
+                for (Warrior warrior : warriors) {
                     warrior.checkCollisionWithBullet(bullet);
                 }
-
+                // Kiểm tra va chạm với boss
+                if (activeBoss != null) {
+                    activeBoss.checkCollisionWithBullet(bullet);
+                }
+                // Cập nhật và xóa đạn nếu cần
                 if (bullet.isProcessed() || bullet.update2()) {
+                    System.out.println("Bullet removed at index " + i + ", x=" + bullet.x + ", y=" + bullet.y); // Debug
                     bullets.remove(i);
                     i--;
-                }
-            }
-
-            for (int i = 0; i < bullets.size(); i++) {
-                if (bullets.get(i).update2()) {
-                    bullets.remove(i);
                 }
             }
 
@@ -170,8 +190,7 @@ public class Panel extends JPanel implements Runnable {
                 startTime = System.currentTimeMillis();
             }
 
-
-            if (System.currentTimeMillis() - startTime >= 20000) {
+            if (System.currentTimeMillis() - startTime >= 200) { // Boss: 200
                 if (!stopWarriorCreation) {
                     showBossMessage = true; // Kích hoạt thông báo
                     bossMessageStartTime = System.currentTimeMillis();
@@ -187,6 +206,8 @@ public class Panel extends JPanel implements Runnable {
             warriors.clear();
             activeBoss = null;
             gameOver = true; // Đánh dấu game over
+            if (mainFrame != null)
+                mainFrame.showGameOver();
         }
         if (activeBoss != null) {
             for (Bullet bullet : bullets) {
@@ -201,6 +222,33 @@ public class Panel extends JPanel implements Runnable {
                 sound.playSound("victorymale.wav"); // Play victory sound
             }
         }
+        updateViewpoint();
+    }
+
+    public int getMapWidth() {
+        return tileM.mapCol * tileSize;
+    }
+
+    public int getMapHeight() {
+        return tileM.mapRow * tileSize;
+    }
+
+    public void updateViewpoint() {
+        int mapWidth = getMapWidth();
+        int mapHeight = getMapHeight();
+
+        viewpointX = player.x + player.width / 2 - boardWidth / 2;
+        viewpointY = player.y + player.height / 2 - boardHeight / 2;
+
+        if (mapWidth <= boardWidth)
+            viewpointX = 0;
+        else
+            viewpointX = Math.max(0, Math.min(viewpointX, mapWidth - boardWidth));
+
+        if (mapHeight <= boardHeight)
+            viewpointY = 0;
+        else
+            viewpointY = Math.max(0, Math.min(viewpointY, mapHeight - boardHeight));
     }
 
     private void clearWarriors() {
@@ -227,67 +275,106 @@ public class Panel extends JPanel implements Runnable {
         heart.reset();
         bullets.clear();
         warriors.clear();
+
         activeBoss = null;
         stopWarriorCreation = false;
         bossCreated = false;
         startTime = 0;
         gameOver = false;
         gameWon = false;
-        sound.playLoopedSound("game-music.wav");
+
+        for (Warrior warrior : warriors) {
+            warrior.clearBfsCache();
+        }
+        // sound.playLoopedSound("game-music.wav");
     }
 
+    @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
 
+        g2.setColor(Color.BLACK);
+        g2.fillRect(0, 0, getWidth(), getHeight());
+
+        int mapWidth = getMapWidth();
+        int mapHeight = getMapHeight();
+        int drawWidth = Math.min(boardWidth, mapWidth - viewpointX);
+        if (mapWidth <= boardWidth)
+            drawWidth = mapWidth;
+        int drawHeight = Math.min(boardHeight, mapHeight - viewpointY);
+        if (mapHeight <= boardHeight)
+            drawHeight = mapHeight;
+
         // Draw the background image
         if (backgroundImage != null) {
-            g2.drawImage(backgroundImage, 0, 0, boardWidth, boardHeight, null);
+            g2.drawImage(
+                    backgroundImage,
+                    0, 0, drawWidth, drawHeight,
+                    viewpointX, viewpointY,
+                    viewpointX + drawWidth, viewpointY + drawHeight,
+                    null);
         }
+
+        tileM.draw(g2, viewpointX, viewpointY, boardWidth, boardHeight);
+        tileM.drawCollisionAreas(g2, viewpointX, viewpointY);
+
         // Draw other game elements
-        player.draw(g2);
-        heart.draw(g2);
-        gun.draw(g2);
+        player.draw(g2, viewpointX, viewpointY);
+        heart.draw(g2, viewpointX, viewpointY);
+        gun.draw(g2, viewpointX, viewpointY);
 
         if (bullets != null) {
             for (int i = 0; i < bullets.size(); i++) {
-                bullets.get(i).draw(g2);
+                bullets.get(i).draw(g2, viewpointX, viewpointY);
             }
         }
 
         if (warriors != null) {
             for (int i = 0; i < warriors.size(); i++) {
-                warriors.get(i).draw(g2);
+                warriors.get(i).draw(g2, viewpointX, viewpointY);
             }
         }
 
         if (activeBoss != null) {
-            activeBoss.draw(g2);
+            activeBoss.draw(g2, viewpointX, viewpointY);
         }
 
         if (showBossMessage) {
             g2.setColor(Color.LIGHT_GRAY);
-            g2.setFont(new Font("Arial", Font.BOLD, 30));
-            g2.drawString("Boss is coming!", boardWidth / 2 - 100, boardHeight / 2);
-        }
-
-        if (gameOver) {
-            g2.setColor(Color.LIGHT_GRAY);
-            g2.setFont(new Font("Arial", Font.BOLD, 60));
-            g2.drawString("GAME OVER", boardWidth / 2 - 180, boardHeight / 2);
-            g2.setFont(new Font("Arial", Font.ITALIC, 30));
-            g2.drawString("Enter to restart", boardWidth / 2 - 100, boardHeight / 2+70);
+            Font bossFont = new Font("Arial", Font.BOLD, 30);
+            g2.setFont(bossFont);
+            String bossMessage = "Boss is coming!";
+            FontMetrics fm = g2.getFontMetrics();
+            int textWidth = fm.stringWidth(bossMessage);
+            int textHeight = fm.getHeight();
+            int x = (getWidth() - textWidth) / 2;
+            int y = (getHeight() - textHeight) / 2;
+            g2.drawString(bossMessage, x, y);
         }
 
         if (gameWon) {
             g2.setColor(Color.YELLOW);
-            g2.setFont(new Font("Arial", Font.BOLD, 60));
-            g2.drawString("VICTORY", boardWidth / 2 - 180, boardHeight / 2);
-            g2.setFont(new Font("Arial", Font.ITALIC, 30));
-            g2.drawString("Enter to restart", boardWidth / 2 - 145, boardHeight / 2+70);
-        }
+            Font victoryFont = new Font("Arial", Font.BOLD, 60);
+            g2.setFont(victoryFont);
+            String victoryMessage = "VICTORY";
+            FontMetrics fmVictory = g2.getFontMetrics();
+            int victoryWidth = fmVictory.stringWidth(victoryMessage);
+            int victoryHeight = fmVictory.getHeight();
+            int victoryX = (getWidth() - victoryWidth) / 2;
+            int victoryY = (getHeight() - victoryHeight) / 2;
+            g2.drawString(victoryMessage, victoryX, victoryY);
 
+            Font restartFont = new Font("Arial", Font.ITALIC, 30);
+            g2.setFont(restartFont);
+            String restartMessage = "Enter to restart";
+            FontMetrics fmRestart = g2.getFontMetrics();
+            int restartWidth = fmRestart.stringWidth(restartMessage);
+            int restartHeight = fmRestart.getHeight();
+            int restartX = (getWidth() - restartWidth) / 2;
+            int restartY = victoryY + victoryHeight + restartHeight;
+            g2.drawString(restartMessage, restartX, restartY);
+        }
         g2.dispose();
     }
 }
-

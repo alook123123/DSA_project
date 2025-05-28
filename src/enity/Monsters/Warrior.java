@@ -5,18 +5,40 @@ import enity.Player;
 import main.KeyHander;
 import main.Panel;
 import enity.Bullet;
+import Tile.TileManager;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Random;
+import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.Queue;
+import java.util.LinkedList;
+
+class PathNode {
+    int x, y;
+    PathNode parent;
+
+    public PathNode(int x, int y, PathNode parent) {
+        this.x = x;
+        this.y = y;
+        this.parent = parent;
+    }
+}
 
 public class Warrior extends Enity {
     int heart = 2;
-    int speed = 10;
+    public int speed = 10;
     int distance_attack = 70;
     private boolean isDead = false;
+    private TileManager tileM;
+    List<PathNode> path_bsf;
+    private Map<String, List<PathNode>> bfsCache;
 
     private long spamMonsterTimer;
 
@@ -24,10 +46,12 @@ public class Warrior extends Enity {
     KeyHander keyHander;
     Player player;
 
-    public Warrior(Player player) {
+    public Warrior(Player player, TileManager tileM) {
         this.panel = player.panel;
         this.keyHander = player.keyHander;
         this.player = player;
+        this.tileM = tileM;
+        this.bfsCache = new HashMap<>();
 
         setDefaltValues_Warrior();
         getWarriorImage();
@@ -36,116 +60,193 @@ public class Warrior extends Enity {
         spamMonsterTimer = System.nanoTime();
     }
 
-    public void setDefaltValues_Warrior(){
-        width = panel.tileSize*2;
-        height = panel.tileSize*2;
-
-        Random rand = new Random();
-        int randomPosition = rand.nextInt(4) + 1;
-        if (randomPosition == 1){
-            y = 0 - height;
-            x = rand.nextInt(panel.boardWidth+1);
-        }
-        else if (randomPosition == 2){
-            y = panel.boardHeight;
-            x = rand.nextInt(panel.boardWidth+1);
-        }
-        else if (randomPosition == 3){
-            x = panel.boardWidth;
-            y = rand.nextInt(panel.boardHeight+1);
-        }
-        else if (randomPosition == 4){
-            x = 0 - width;
-            y = rand.nextInt(panel.boardHeight+1);
-        }
-
-        attackArea = new Rectangle(x,y,width,height);
-        damageArea = new Rectangle(x,y,width,height);
+    private String generateCacheKey(int startX, int startY, int goalX, int goalY) {
+        return startX + "," + startY + "->" + goalX + "," + goalY;
     }
 
-    public void getWarriorImage(){
+    public void setDefaltValues_Warrior() {
+        width = panel.tileSize * 2;
+        height = panel.tileSize * 2;
+
+        Random rand = new Random();
+        int mapWidth = panel.tileM.mapCol * panel.tileSize;
+        int mapHeight = panel.tileM.mapRow * panel.tileSize;
+        int randomPosition = rand.nextInt(4) + 1;
+        if (randomPosition == 1) {
+            y = 0 - height;
+            x = rand.nextInt(Math.max(1, mapWidth));
+        } else if (randomPosition == 2) {
+            y = mapHeight - height - 1;
+            x = rand.nextInt(Math.max(1, mapWidth - width));
+        } else if (randomPosition == 3) {
+            x = mapWidth;
+            y = rand.nextInt(Math.max(1, mapHeight));
+        } else { // 4
+            x = 0 - width;
+            y = rand.nextInt(Math.max(1, mapHeight));
+        }
+
+        attackArea = new Rectangle(x, y, width, height);
+        damageArea = new Rectangle(x, y, width, height);
+
+        collisionArea = new Rectangle();
+        collisionArea.x = 30;
+        collisionArea.y = 50;
+        collisionArea.width = 32;
+        collisionArea.height = 32;
+    }
+
+    public void getWarriorImage() {
         try {
-            warriorMoveRight1 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-1.png.png"));
-            warriorMoveRight2 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-2.png.png"));
-            warriorMoveRight3 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-3.png.png"));
-            warriorMoveRight4 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-4.png.png"));
-            warriorMoveRight5 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-5.png.png"));
+            warriorMoveRight1 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-1.png.png"));
+            warriorMoveRight2 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-2.png.png"));
+            warriorMoveRight3 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-3.png.png"));
+            warriorMoveRight4 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-4.png.png"));
+            warriorMoveRight5 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Right-5.png.png"));
 
-            warriorMoveLeft1 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Left-1.png.png"));
-            warriorMoveLeft2 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Left-2.png.png"));
-            warriorMoveLeft3 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Left-3.png.png"));
-            warriorMoveLeft4 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Left-4.png.png"));
-            warriorMoveLeft5 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Left-5.png.png"));
+            warriorMoveLeft1 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Left-1.png.png"));
+            warriorMoveLeft2 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Left-2.png.png"));
+            warriorMoveLeft3 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Left-3.png.png"));
+            warriorMoveLeft4 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Left-4.png.png"));
+            warriorMoveLeft5 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/move/Warrior_Move_Left-5.png.png"));
 
-            warriorAttack1Right1 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-1.png.png"));
-            warriorAttack1Right2 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-2.png.png"));
-            warriorAttack1Right3 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-3.png.png"));
-            warriorAttack1Right4 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-4.png.png"));
-            warriorAttack1Right5 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-5.png.png"));
-            warriorAttack1Right6 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-6.png.png"));
-            warriorAttack1Right7 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-7.png.png"));
-            warriorAttack1Right8 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-8.png.png"));
+            warriorAttack1Right1 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-1.png.png"));
+            warriorAttack1Right2 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-2.png.png"));
+            warriorAttack1Right3 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-3.png.png"));
+            warriorAttack1Right4 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-4.png.png"));
+            warriorAttack1Right5 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-5.png.png"));
+            warriorAttack1Right6 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-6.png.png"));
+            warriorAttack1Right7 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-7.png.png"));
+            warriorAttack1Right8 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Right-8.png.png"));
 
-            warriorAttack1Left1 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-1.png.png"));
-            warriorAttack1Left2 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-2.png.png"));
-            warriorAttack1Left3 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-3.png.png"));
-            warriorAttack1Left4 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-4.png.png"));
-            warriorAttack1Left5 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-5.png.png"));
-            warriorAttack1Left6 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-6.png.png"));
-            warriorAttack1Left7 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-7.png.png"));
-            warriorAttack1Left8 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-8.png.png"));
+            warriorAttack1Left1 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-1.png.png"));
+            warriorAttack1Left2 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-2.png.png"));
+            warriorAttack1Left3 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-3.png.png"));
+            warriorAttack1Left4 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-4.png.png"));
+            warriorAttack1Left5 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-5.png.png"));
+            warriorAttack1Left6 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-6.png.png"));
+            warriorAttack1Left7 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-7.png.png"));
+            warriorAttack1Left8 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack1/Warrior_Attack1_Left-8.png.png"));
 
-            warriorAttack2Right1 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-1.png.png"));
-            warriorAttack2Right2 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-2.png.png"));
-            warriorAttack2Right3 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-3.png.png"));
-            warriorAttack2Right4 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-4.png.png"));
-            warriorAttack2Right5 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-5.png.png"));
-            warriorAttack2Right6 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-6.png.png"));
+            warriorAttack2Right1 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-1.png.png"));
+            warriorAttack2Right2 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-2.png.png"));
+            warriorAttack2Right3 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-3.png.png"));
+            warriorAttack2Right4 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-4.png.png"));
+            warriorAttack2Right5 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-5.png.png"));
+            warriorAttack2Right6 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Right-6.png.png"));
 
-            warriorAttack2Left1 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-1.png.png"));
-            warriorAttack2Left2 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-2.png.png"));
-            warriorAttack2Left3 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-3.png.png"));
-            warriorAttack2Left4 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-4.png.png"));
-            warriorAttack2Left5 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-5.png.png"));
-            warriorAttack2Left6 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-6.png.png"));
+            warriorAttack2Left1 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-1.png.png"));
+            warriorAttack2Left2 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-2.png.png"));
+            warriorAttack2Left3 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-3.png.png"));
+            warriorAttack2Left4 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-4.png.png"));
+            warriorAttack2Left5 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-5.png.png"));
+            warriorAttack2Left6 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/attack2/Warrior_Attack2_Left-6.png.png"));
 
-            warriorHurtRight = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/hurt/Warrior_Hurt_Right-1.png.png"));
-            warriorHurtLeft = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/hurt/Warrior_Hurt_Left-1.png.png"));
+            warriorHurtRight = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/hurt/Warrior_Hurt_Right-1.png.png"));
+            warriorHurtLeft = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/hurt/Warrior_Hurt_Left-1.png.png"));
 
-            warriorDeathRight1 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-1.png.png"));
-            warriorDeathRight2 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-2.png.png"));
-            warriorDeathRight3 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-3.png.png"));
-            warriorDeathRight4 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-4.png.png"));
-            warriorDeathRight5 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-5.png.png"));
-            warriorDeathRight6 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-6.png.png"));
-            warriorDeathRight7 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-7.png.png"));
-            warriorDeathRight8 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-8.png.png"));
-            warriorDeathRight9 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-9.png.png"));
-            warriorDeathRight10 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-10.png.png"));
-            warriorDeathRight11 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-11.png.png"));
-            warriorDeathRight12 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-12.png.png"));
-            warriorDeathRight13 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-13.png.png"));
+            warriorDeathRight1 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-1.png.png"));
+            warriorDeathRight2 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-2.png.png"));
+            warriorDeathRight3 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-3.png.png"));
+            warriorDeathRight4 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-4.png.png"));
+            warriorDeathRight5 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-5.png.png"));
+            warriorDeathRight6 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-6.png.png"));
+            warriorDeathRight7 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-7.png.png"));
+            warriorDeathRight8 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-8.png.png"));
+            warriorDeathRight9 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-9.png.png"));
+            warriorDeathRight10 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-10.png.png"));
+            warriorDeathRight11 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-11.png.png"));
+            warriorDeathRight12 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-12.png.png"));
+            warriorDeathRight13 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Right-13.png.png"));
 
-            warriorDeathLeft1 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-1.png.png"));
-            warriorDeathLeft2 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-2.png.png"));
-            warriorDeathLeft3 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-3.png.png"));
-            warriorDeathLeft4 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-4.png.png"));
-            warriorDeathLeft5 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-5.png.png"));
-            warriorDeathLeft6 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-6.png.png"));
-            warriorDeathLeft7 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-7.png.png"));
-            warriorDeathLeft8 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-8.png.png"));
-            warriorDeathLeft9 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-9.png.png"));
-            warriorDeathLeft10 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-10.png.png"));
-            warriorDeathLeft11 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-11.png.png"));
-            warriorDeathLeft12 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-12.png.png"));
-            warriorDeathLeft13 = ImageIO.read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-13.png.png"));
+            warriorDeathLeft1 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-1.png.png"));
+            warriorDeathLeft2 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-2.png.png"));
+            warriorDeathLeft3 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-3.png.png"));
+            warriorDeathLeft4 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-4.png.png"));
+            warriorDeathLeft5 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-5.png.png"));
+            warriorDeathLeft6 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-6.png.png"));
+            warriorDeathLeft7 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-7.png.png"));
+            warriorDeathLeft8 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-8.png.png"));
+            warriorDeathLeft9 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-9.png.png"));
+            warriorDeathLeft10 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-10.png.png"));
+            warriorDeathLeft11 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-11.png.png"));
+            warriorDeathLeft12 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-12.png.png"));
+            warriorDeathLeft13 = ImageIO
+                    .read(getClass().getResourceAsStream("/monsters/warrior/death/Warrior_Death_Left-13.png.png"));
 
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
     public void checkCollisionWithBullet(Bullet bullet) {
-        if (bullet.isProcessed()) return;
+        if (bullet.isProcessed())
+            return;
 
         Rectangle attackArea = bullet.getAttackArea();
         if (damageArea.intersects(attackArea)) {
@@ -154,42 +255,115 @@ public class Warrior extends Enity {
         }
     }
 
-
     public void takeDamage(int damage) {
-        if (isDead) return;
+        if (isDead)
+            return;
         heart -= damage;
-        action="hurt";
+        action = "hurt";
 
         if (heart <= 0) {
             isDead = true;
         }
     }
 
-
-    public void update1(){
+    public void update1() {
         long currentTime = System.nanoTime();
         if (currentTime - spamMonsterTimer > 1500000000L) {
-            Panel.warriors.add(new Warrior(this.player));
+            Panel.warriors.add(new Warrior(this.player, this.tileM));
             spamMonsterTimer = currentTime;
         }
     }
 
+    public List<PathNode> bfs(int startX, int startY, int goalX, int goalY, boolean[][] walkable) {
+        if (walkable == null || walkable.length == 0 || walkable[0].length == 0) return null;
+        String cacheKey = generateCacheKey(startX, startY, goalX, goalY);
+        if (bfsCache.containsKey(cacheKey)) {
+            return bfsCache.get(cacheKey);
+        }
 
-    public boolean update2(){
-        double distance_to_playerX = player.x-x;
-        double distance_to_playerY = player.y-y;
+        int cols = walkable.length;
+        int rows = walkable[0].length;
 
-        double distance_to_player = Math.sqrt(Math.pow(distance_to_playerX,2) + Math.pow(distance_to_playerY,2));
+        if (startX < 0 || startY < 0 || startX >= cols || startY >= rows ||
+                goalX < 0 || goalY < 0 || goalX >= cols || goalY >= rows) {
+            return null;
+        }
 
-        if (distance_to_player == 0){
+        boolean[][] visited = new boolean[cols][rows];
+        Queue<PathNode> queue = new LinkedList<>();
+        queue.add(new PathNode(startX, startY, null));
+        visited[startX][startY] = true;
+
+        int[] dx = {-1, 1, 0, 0}; // trái, phải
+        int[] dy = {0, 0, -1, 1}; // lên, xuống
+
+        while (!queue.isEmpty()) {
+            PathNode current = queue.poll();
+
+            if (current.x == goalX && current.y == goalY) {
+                List<PathNode> path = new ArrayList<>();
+                for (PathNode p = current; p != null; p = p.parent) {
+                    path.add(p);
+                }
+                Collections.reverse(path);
+                bfsCache.put(cacheKey, path);
+                return path;
+            }
+
+            for (int i = 0; i < 4; i++) {
+                int nx = current.x + dx[i];
+                int ny = current.y + dy[i];
+
+                if (nx >= 0 && ny >= 0 && nx < cols && ny < rows && walkable[nx][ny] && !visited[nx][ny]) {
+                    visited[nx][ny] = true;
+                    queue.add(new PathNode(nx, ny, current));
+                }
+            }
+        }
+        bfsCache.put(cacheKey, null);
+        return null;
+    }
+    
+    public void clearBfsCache() {
+        bfsCache.clear();
+    }
+/// ////////////// debug only
+//    public void printWalkableMap() {
+//        boolean[][] walkableMap = tileM.getWalkableMap();
+//        int cols = walkableMap.length;
+//        int rows = walkableMap[0].length;
+//
+//        for (int row = 0; row < rows; row++) {
+//            for (int col = 0; col < cols; col++) {
+//                if (walkableMap[col][row]) {
+//                    System.out.print("."); // Có thể đi
+//                } else {
+//                    System.out.print("#"); // Không thể đi
+//                }
+//            }
+//            System.out.println(); // Xuống dòng sau mỗi hàng
+//        }
+//    }
+
+    public boolean update2() {
+        double distance_to_playerX = player.x - x;
+        double distance_to_playerY = player.y - y;
+
+        double distance_to_player = Math.sqrt(Math.pow(distance_to_playerX, 2) + Math.pow(distance_to_playerY, 2));
+
+        if (distance_to_player == 0) {
             distance_to_player = 1;
         }
-        double speedX = (speed/distance_to_player)*distance_to_playerX;
-        double speedY = (speed/distance_to_player)*distance_to_playerY;
+        double speedX = (speed / distance_to_player) * distance_to_playerX;
+        double speedY = (speed / distance_to_player) * distance_to_playerY;
 
         if (isDead) {
             return true;
         }
+
+        collisionOn = false;
+        panel.cChecker.checkTileWarrior(this, speedX, speedY);
+
         if (distance_to_playerX >= 0 && distance_to_player > distance_attack) {
             if (!(action == "hurt" || action == "death")) {
                 action = "moveRight";
@@ -212,18 +386,13 @@ public class Warrior extends Enity {
             direction_horizontal = "left";
         }
 
-        attackArea = new Rectangle(x,y,width,height);
-        damageArea = new Rectangle(x,y,width,height);
+        attackArea = new Rectangle(x, y, width, height);
+        damageArea = new Rectangle(x, y, width, height);
 
-
-        if((action == "attack1Right" || action == "attack1Left") && (action != "death") && (player.damageArea.intersects(this.attackArea))){
-            if(player.heart <= 0){
-                player.action = "death";
-            }
-            else {
-                player.action = "hurt";
-            }
+        if ((action == "attack1Right" || action == "attack1Left") && (action != "death") && (this.attackArea.intersects(player.damageArea))) {
+            player.takeDamage(0.5f);
         }
+
         if (!(action == "hurt" || action == "death")) {
             if (action == "moveRight" || action == "moveLeft") {
                 spriteCounter_5Frame++;
@@ -240,8 +409,57 @@ public class Warrior extends Enity {
                         spriteNum_5Frame = 1;
                     }
                     spriteCounter_5Frame = 0;
-                    x += speedX;
-                    y += speedY;
+                    if(!collisionOn) {
+                        x += speedX;
+                        worldX = x;
+                        y += speedY;
+                        worldY = y;
+                    } else {
+                        // Get tile coordinates
+                        int tileSize = panel.tileSize;
+                        int startTileX = Math.max(0, Math.min(x / tileSize, panel.tileM.mapCol - 1));
+                        int startTileY = Math.max(0, Math.min(y / tileSize, panel.tileM.mapRow - 1));
+                        int goalTileX = Math.max(0, Math.min(player.x / tileSize, panel.tileM.mapCol - 1));
+                        int goalTileY = Math.max(0, Math.min(player.y / tileSize, panel.tileM.mapRow - 1));
+
+                        if (panel.tileM.mapCol == 0 || panel.tileM.mapRow == 0) return true;
+                        if (startTileX < 0 || startTileY < 0 || startTileX >= panel.tileM.mapCol || startTileY >= panel.tileM.mapRow ||
+                            goalTileX < 0 || goalTileY < 0 || goalTileX >= panel.tileM.mapCol || goalTileY >= panel.tileM.mapRow) {
+                            return true; // bỏ qua nếu ngoài map
+                        }
+
+                        // Prepare the walkable map
+                        boolean[][] walkable = tileM != null ? tileM.getWalkableMap() : null;
+                        if (walkable == null) return true;
+
+                        List<PathNode> path = bfs(startTileX, startTileY, goalTileX, goalTileY, walkable);
+                        path_bsf = path;
+                        if (path != null && path.size() > 1) {
+                            PathNode nextStep = path.get(1);
+                            double targetX = nextStep.x * tileSize + tileSize / 4.0;
+                            double targetY = nextStep.y * tileSize + tileSize / 1.5;
+
+                            double deltaX = targetX - x;
+                            double deltaY = targetY - y;
+                            double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                            if (distance == 0) distance = 1;
+
+                            x += (speed / distance) * deltaX;
+                            y += (speed / distance) * deltaY;
+
+                            worldX = x;
+                            worldY = y;
+                            //printWalkableMap();
+
+//                            panel.cChecker.checkTileWarrior(this, speedX, speedY);
+//                            if (!collisionOn) {
+//                                x += speedX;
+//                                worldX = x;
+//                                y += speedY;
+//                                worldY = y;
+//                            }
+                        }
+                    }
                 }
             }
 
@@ -266,21 +484,24 @@ public class Warrior extends Enity {
                         spriteNum_8Frame = 1;
                     }
                     spriteCounter_8Frame = 0;
-                    x += speedX;
-                    y += speedY;
+                    if (!collisionOn) {
+                        x += speedX;
+                        worldX = x;
+                        y += speedY;
+                        worldY = y;
+                    }
+
                 }
             }
         }
-        if (action == "hurt"){
+        if (action == "hurt") {
             spriteCounter_3Frame++;
             if (spriteCounter_3Frame > 8) {
                 if (spriteNum_3Frame == 1) {
                     spriteNum_3Frame = 2;
-                }
-                else if (spriteNum_3Frame == 2) {
+                } else if (spriteNum_3Frame == 2) {
                     spriteNum_3Frame = 3;
-                }
-                else if (spriteNum_3Frame == 3) {
+                } else if (spriteNum_3Frame == 3) {
                     spriteNum_3Frame = 1;
                     action = "moveRight";
                 }
@@ -288,7 +509,7 @@ public class Warrior extends Enity {
             }
         }
 
-        if( action == "death" ){
+        if (action == "death") {
             spriteCounter_13Frame++;
             if (spriteCounter_13Frame > 15) {
                 if (spriteNum_13Frame == 1) {
@@ -325,100 +546,100 @@ public class Warrior extends Enity {
         return false;
     }
 
-    public void draw(Graphics2D g2){
+    public void draw(Graphics2D g2, int viewpointX, int viewpointY) {
         BufferedImage image = null;
 
         if (action == "moveRight") {
-            if (spriteNum_5Frame == 1){
+            if (spriteNum_5Frame == 1) {
                 image = warriorMoveRight1;
             }
-            if (spriteNum_5Frame == 2){
+            if (spriteNum_5Frame == 2) {
                 image = warriorMoveRight2;
             }
-            if (spriteNum_5Frame == 3){
+            if (spriteNum_5Frame == 3) {
                 image = warriorMoveRight3;
             }
-            if (spriteNum_5Frame == 4){
+            if (spriteNum_5Frame == 4) {
                 image = warriorMoveRight4;
             }
-            if (spriteNum_5Frame == 5){
+            if (spriteNum_5Frame == 5) {
                 image = warriorMoveRight5;
             }
         }
 
         if (action == "moveLeft") {
-            if (spriteNum_5Frame == 1){
+            if (spriteNum_5Frame == 1) {
                 image = warriorMoveLeft1;
             }
-            if (spriteNum_5Frame == 2){
+            if (spriteNum_5Frame == 2) {
                 image = warriorMoveLeft2;
             }
-            if (spriteNum_5Frame == 3){
+            if (spriteNum_5Frame == 3) {
                 image = warriorMoveLeft3;
             }
-            if (spriteNum_5Frame == 4){
+            if (spriteNum_5Frame == 4) {
                 image = warriorMoveLeft4;
             }
-            if (spriteNum_5Frame == 5){
+            if (spriteNum_5Frame == 5) {
                 image = warriorMoveLeft5;
             }
         }
 
         if (action == "attack1Right") {
-            if (spriteNum_8Frame == 1){
+            if (spriteNum_8Frame == 1) {
                 image = warriorAttack1Right1;
             }
-            if (spriteNum_8Frame == 2){
+            if (spriteNum_8Frame == 2) {
                 image = warriorAttack1Right2;
             }
-            if (spriteNum_8Frame == 3){
+            if (spriteNum_8Frame == 3) {
                 image = warriorAttack1Right3;
             }
-            if (spriteNum_8Frame == 4){
+            if (spriteNum_8Frame == 4) {
                 image = warriorAttack1Right4;
             }
-            if (spriteNum_8Frame == 5){
+            if (spriteNum_8Frame == 5) {
                 image = warriorAttack1Right5;
             }
-            if (spriteNum_8Frame == 6){
+            if (spriteNum_8Frame == 6) {
                 image = warriorAttack1Right6;
             }
-            if (spriteNum_8Frame == 7){
+            if (spriteNum_8Frame == 7) {
                 image = warriorAttack1Right7;
             }
-            if (spriteNum_8Frame == 8){
+            if (spriteNum_8Frame == 8) {
                 image = warriorAttack1Right8;
             }
         }
 
         if (action == "attack1Left") {
-            if (spriteNum_8Frame == 1){
+            if (spriteNum_8Frame == 1) {
                 image = warriorAttack1Left1;
             }
-            if (spriteNum_8Frame == 2){
+            if (spriteNum_8Frame == 2) {
                 image = warriorAttack1Left2;
             }
-            if (spriteNum_8Frame == 3){
+            if (spriteNum_8Frame == 3) {
                 image = warriorAttack1Left3;
             }
-            if (spriteNum_8Frame == 4){
+            if (spriteNum_8Frame == 4) {
                 image = warriorAttack1Left4;
             }
-            if (spriteNum_8Frame == 5){
+            if (spriteNum_8Frame == 5) {
                 image = warriorAttack1Left5;
             }
-            if (spriteNum_8Frame == 6){
+            if (spriteNum_8Frame == 6) {
                 image = warriorAttack1Left6;
             }
-            if (spriteNum_8Frame == 7){
+            if (spriteNum_8Frame == 7) {
                 image = warriorAttack1Left7;
             }
-            if (spriteNum_8Frame == 8){
+            if (spriteNum_8Frame == 8) {
                 image = warriorAttack1Left8;
             }
         }
 
-        if (action == "hurt"){
+        if (action == "hurt") {
             if (direction_horizontal == "right") {
                 if (spriteNum_3Frame == 1) {
                     image = warriorHurtRight;
@@ -528,10 +749,31 @@ public class Warrior extends Enity {
             }
         }
 
+        int drawX = x - viewpointX;
+        int drawY = y - viewpointY;
 
+        if (image != null) g2.drawImage(image, drawX, drawY, width, height, null);
 
-        g2.drawImage(image, x, y, width, height,null);
+        // Draw collision area
+        g2.setColor(new Color(255, 0, 0, 100));
+        g2.drawRect(worldX + collisionArea.x - viewpointX,
+                    drawY + collisionArea.y,
+                    collisionArea.width,
+                    collisionArea.height);
+
+        ///  ////////////////////////////////////
+        if (path_bsf != null) {
+            for (PathNode node : path_bsf) {
+                int tileX = node.x;
+                int tileY = node.y;
+                int screenX = tileX * panel.tileSize - viewpointX;
+                int screenY = tileY * panel.tileSize - viewpointY;
+                g2.setColor(new Color(0, 255, 157, 128));
+                g2.fillRect(screenX, screenY, panel.tileSize, panel.tileSize);
+            }
+        }
     }
+
     public Rectangle getDamageArea() {
         return damageArea;
     }

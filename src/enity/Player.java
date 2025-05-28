@@ -1,7 +1,9 @@
 package enity;
 
+
 import main.KeyHander;
 import main.Panel;
+import main.Viewpoint;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -9,14 +11,10 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 
 public class Player extends Enity {
-    public int heart = 4;
-    private int initialX, initialY, maxHealth;
-    private int health;
-
-
+    public int heart = 10000;
+    public int initialX, initialY, maxHealth;
     public Panel panel;
     public KeyHander keyHander;
-
 
     public Player(Panel panel, KeyHander keyHander) {
         this.panel = panel;
@@ -26,8 +24,7 @@ public class Player extends Enity {
         this.initialX = panel.boardWidth / 2 - panel.tileSize / 2;
         this.initialY = panel.boardHeight / 2 - panel.tileSize / 2;
         this.maxHealth = 4; // Default max health
-        this.health = maxHealth;
-
+        this.heart = maxHealth;
         setDefaultValues_Player();
         getPlayerImage();
     }
@@ -36,11 +33,21 @@ public class Player extends Enity {
         String direction = "standRight";
         x = initialX;
         y = initialY;
-        width = panel.tileSize * 3 / 2;
+        worldX = x;
+        worldY = y;
+
+        width = (panel.tileSize * 3 / 2);
         height = panel.tileSize * 3 / 2;
         speedX = 4;
         speedY = 4;
+        //speed = 4;
         direction_horizontal = "right";
+
+        collisionArea =  new Rectangle();
+        collisionArea.x = 20;
+        collisionArea.y = 35;
+        collisionArea.width = 32;
+        collisionArea.height = 32;
 
         damageArea = new Rectangle(x, y, width, height);
         action = "standRight";
@@ -109,14 +116,35 @@ public class Player extends Enity {
         }
     }
 
+    public void takeDamage(float damage) {
+        if (action.equals("death")) return;
+        if (action.equals("hurt")) return;
+        heart -= damage;
+        if (heart <= 0) {
+            heart = 0;
+            action = "death";
+        } else {
+            action = "hurt";
+        }
+    }
+    
     int count;
     public void update() {
         damageArea = new Rectangle(x,y,width,height);
 
-        if (keyHander.w_Pressed == true && action != "death") {
+        //check tile collision
+        collisionOn = false;
+        panel.cChecker.checkTile(this);
+        //if collision is false, player can move
+
+        int mapWidth = panel.tileM.mapCol * panel.tileSize;
+        int mapHeight = panel.tileM.mapRow * panel.tileSize;
+
+        if (keyHander.w_Pressed == true && action != "death" && !panel.cChecker.isCollisionUp()) {
             count = 1;
             if (y - speedY >= 0) {
                 y -= speedY;
+                worldY = y;
             }
             direction_vertical = "up";
             if (action != "hurt") {
@@ -138,10 +166,11 @@ public class Player extends Enity {
             }
         }
 
-        if (keyHander.s_Pressed == true && action != "death") {
+        if (keyHander.s_Pressed == true && action != "death" && !panel.cChecker.isCollisionDown()) {
             count = 2;
-            if (y + speedY + height <= panel.boardHeight) { // Kiểm tra giới hạn dưới
+            if (y + speedY + height <= mapHeight) {
                 y += speedY;
+                worldY = y;
             }
             direction_vertical = "down";
             if (action != "hurt") {
@@ -163,10 +192,11 @@ public class Player extends Enity {
             }
         }
 
-        if (keyHander.a_Pressed == true && action != "death") {
+        if (keyHander.a_Pressed == true && action != "death" && !panel.cChecker.isCollisionLeft()) {
             count = 3;
-            if (x - speedX >= 0) { // Kiểm tra giới hạn bên trái
+            if (x - speedX >= 0) {
                 x -= speedX;
+                worldX = x;
             }
             direction_horizontal = "left";
             if (action != "hurt") {
@@ -178,10 +208,11 @@ public class Player extends Enity {
             }
         }
 
-        if (keyHander.d_Pressed == true && action != "death") {
+        if (keyHander.d_Pressed == true && action != "death" && !panel.cChecker.isCollisionRight()) {
             count = 4;
-            if (x + speedX + width <= panel.boardWidth) { // Kiểm tra giới hạn bên phải
+            if (x + speedX + width <= mapWidth) { // Kiểm tra giới hạn bên phải
                 x += speedX;
+                worldX = x;
             }
             direction_horizontal = "right";
             if (action != "hurt") {
@@ -193,56 +224,19 @@ public class Player extends Enity {
             }
         }
 
-        if (action == "hurt"){
+
+        if (action.equals("hurt")) {
             spriteCounter_14Frame++;
             if (spriteCounter_14Frame > 8) {
-                if ( spriteNum_14Frame == 1){
-                    heart = heart - 1;
-                    spriteNum_14Frame = 2;
-                }
-                else if (spriteNum_14Frame == 2){
-                    spriteNum_14Frame = 3;
-                }
-                else if (spriteNum_14Frame == 3){
-                    spriteNum_14Frame = 4;
-                }
-                else if (spriteNum_14Frame == 4){
-                    spriteNum_14Frame = 5;
-                }
-                else if (spriteNum_14Frame == 5){
-                    spriteNum_14Frame = 6;
-                }
-                else if (spriteNum_14Frame == 6){
-                    spriteNum_14Frame = 7;
-                }
-                else if (spriteNum_14Frame == 7){
-                    spriteNum_14Frame = 8;
-                }
-                else if (spriteNum_14Frame == 8){
-                    spriteNum_14Frame = 9;
-                }
-                else if (spriteNum_14Frame == 9) {
-                    spriteNum_14Frame = 10;
-                }
-                else if (spriteNum_14Frame == 10){
-                    spriteNum_14Frame = 11;
-                }
-                else if (spriteNum_14Frame == 11){
-                    spriteNum_14Frame = 12;
-                }
-                else if (spriteNum_14Frame == 12){
-                    spriteNum_14Frame = 13;
-                }
-                else if (spriteNum_14Frame == 13){
-                    spriteNum_14Frame = 14;
-                }
-                else if (spriteNum_14Frame == 14){
+                if (spriteNum_14Frame < 14) {
+                    spriteNum_14Frame++;
+                } else {
                     spriteNum_14Frame = 1;
+                    action = direction_horizontal.equals("left") ? "standLeft" : "standRight";
                 }
                 spriteCounter_14Frame = 0;
             }
         }
-
         if( action == "death" ){
             spriteCounter_5Frame ++;
             if (spriteCounter_5Frame > 15) {
@@ -289,7 +283,7 @@ public class Player extends Enity {
         }
     }
 
-    public void draw(Graphics2D g2) {
+    public void draw(Graphics2D g2, int viewpointX, int viewpointY) {
 //        g2.setColor(Color.WHITE);
 //        g2.fillRect(x, y, panel.tileSize, panel.tileSize);
         BufferedImage image = null;
@@ -331,7 +325,6 @@ public class Player extends Enity {
         }
 
         // when damaged
-
         if (action == "hurt"){
             if (direction_horizontal == "right"){
                 if (spriteNum_14Frame == 1){
@@ -464,15 +457,24 @@ public class Player extends Enity {
             }
         }
 
-        g2.drawImage(image, x, y, width, height, null);
+        int drawX = x - viewpointX;
+        int drawY = y - viewpointY;
+        if (image != null) g2.drawImage(image, drawX, drawY, width, height, null);
+        //draw CollisionArea rectangle
+        //g2.setColor(Color.RED);
+        // g2.drawRect(panel.cChecker.getPlayerLeftWorldX(),
+        //         panel.cChecker.getPlayerTopWorldY(),
+        //         panel.cChecker.getPlayerRightWorldX()- panel.cChecker.getPlayerLeftWorldX(),
+        //         panel.cChecker.getPlayerBottomWorldY() - panel.cChecker.getPlayerTopWorldY());
 
+        //draw damageArea rectangle
+//        g2.drawRect(damageArea.x, damageArea.y, damageArea.width, damageArea.height);
     }
 
     public void reset() {
         // Reset player's position, health, and action
         this.x = initialX;
         this.y = initialY;
-        this.health = maxHealth;  // Reset health to max
         this.heart = maxHealth;   // Reset heart count if applicable
         this.action = "standRight"; // Reset action to idle/standing
 
@@ -480,5 +482,4 @@ public class Player extends Enity {
         this.direction_horizontal = "right";
         this.direction_vertical = "down";
     }
-
 }
