@@ -6,8 +6,6 @@ import java.awt.image.BufferedImage;
 
 public class Enity {
 
-
-
     public int x, y;
     public int speed, speedX,speedY;
     public int width,height;

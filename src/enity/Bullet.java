@@ -3,25 +3,25 @@ package enity;
 import enity.Monsters.Warrior;
 import main.KeyHander;
 import main.Panel;
+import main.Viewpoint;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 
-public class Bullet extends Enity{
+public class Bullet extends Enity {
     int damage = 1;
     int bulletSpeed = 15;
 
     private long firingTimer;
     private long firingDelay;
 
-
     Panel panel;
     KeyHander keyHander;
     Gun gun;
 
-    public Bullet(Gun gun){
+    public Bullet(Gun gun) {
         this.panel = gun.panel;
         this.keyHander = gun.keyHander;
         this.gun = gun;
@@ -33,22 +33,22 @@ public class Bullet extends Enity{
         firingDelay = 375;
     }
 
-    public void setDefautValues_Bullet(){
+    public void setDefautValues_Bullet() {
         x = gun.x;
         y = gun.y + 30;
-        width = gun.width/2;
-        height = gun.height/2;
+        width = gun.width / 2;
+        height = gun.height / 2;
 
-        attackArea = new Rectangle(gun.x,gun.y,width,height);
+        attackArea = new Rectangle(gun.x, gun.y, width, height);
     }
 
     public void getBulletImage() {
-        try{
+        try {
             bulletRight = ImageIO.read(getClass().getResourceAsStream("/bullet/Bullets-2.png.png"));
             bulletLeft = ImageIO.read(getClass().getResourceAsStream("/bullet/Bullets-1.png.png"));
             bulletUp = ImageIO.read(getClass().getResourceAsStream("/bullet/Bullets-3.png.png"));
             bulletDown = ImageIO.read(getClass().getResourceAsStream("/bullet/Bullets-4.png.png"));
-        }catch(IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -56,44 +56,47 @@ public class Bullet extends Enity{
     double startedDelay = 100;
     boolean haveBeenStared;
 
-    public void update1 (){
-        if (keyHander.left_Pressed == true || keyHander.right_Pressed == true || keyHander.up_Pressed == true || keyHander.down_Pressed == true) {
+    public void update1() {
+        if (keyHander.left_Pressed == true || keyHander.right_Pressed == true || keyHander.up_Pressed == true
+                || keyHander.down_Pressed == true) {
             long eslapsed = (System.nanoTime() - firingTimer) / 1000000;
             if (eslapsed > startedDelay || haveBeenStared == true) {
                 if (eslapsed > startedDelay && haveBeenStared != true) {
                     Panel.bullets.add(new Bullet(this.gun));
                     firingTimer = System.nanoTime();
                     haveBeenStared = true;
-                }
-                else if (eslapsed > firingDelay) {
+                } else if (eslapsed > firingDelay) {
                     Panel.bullets.add(new Bullet(this.gun));
                     firingTimer = System.nanoTime();
                     haveBeenStared = true;
                 }
             }
         }
-        if (!(keyHander.left_Pressed == true || keyHander.right_Pressed == true || keyHander.up_Pressed == true || keyHander.down_Pressed == true)){
+        if (!(keyHander.left_Pressed == true || keyHander.right_Pressed == true || keyHander.up_Pressed == true
+                || keyHander.down_Pressed == true)) {
             haveBeenStared = false;
             firingTimer = System.nanoTime();
         }
     }
 
+    boolean loopRight, loopLeft, loopUp, loopDown;
 
-    boolean loopRight,loopLeft,loopUp,loopDown;
     public boolean update2() {
-        if (keyHander.right_Pressed == true && loopRight != true && loopLeft != true && loopUp != true && loopDown != true) {
+        if (keyHander.right_Pressed == true && loopRight != true && loopLeft != true && loopUp != true
+                && loopDown != true) {
             x = gun.x + 55;
             y = gun.y + 30;
             loopRight = true;
         }
         if (loopRight == true) {
             x += bulletSpeed;
-            if (x > panel.boardWidth) {
+            if (x > panel.getMapWidth()) {
                 return true;
             }
         }
 
-        if (keyHander.left_Pressed == true && loopRight != true && loopLeft != true && loopUp != true && loopDown != true) {
+        if (keyHander.left_Pressed == true && loopRight != true && loopLeft != true && loopUp != true
+                && loopDown != true) {
             x = gun.x;
             y = gun.y + 30;
             loopLeft = true;
@@ -106,7 +109,8 @@ public class Bullet extends Enity{
         }
 
         if (gun.action == "right") {
-            if (keyHander.up_Pressed == true && loopRight != true && loopLeft != true && loopUp != true && loopDown != true) {
+            if (keyHander.up_Pressed == true && loopRight != true && loopLeft != true && loopUp != true
+                    && loopDown != true) {
                 x = gun.x + 45;
                 y = gun.y;
                 loopUp = true;
@@ -118,21 +122,23 @@ public class Bullet extends Enity{
                 }
             }
 
-            if (keyHander.down_Pressed == true && loopRight != true && loopLeft != true && loopUp != true && loopDown != true) {
+            if (keyHander.down_Pressed == true && loopRight != true && loopLeft != true && loopUp != true
+                    && loopDown != true) {
                 x = gun.x + 40;
                 y = gun.y + 50;
                 loopDown = true;
             }
             if (loopDown == true) {
                 y += bulletSpeed;
-                if (y > panel.boardHeight) {
+                if (y > panel.getMapHeight()) {
                     return true;
                 }
             }
         }
 
         if (gun.action == "left") {
-            if (keyHander.up_Pressed == true && loopRight != true && loopLeft != true && loopUp != true && loopDown != true) {
+            if (keyHander.up_Pressed == true && loopRight != true && loopLeft != true && loopUp != true
+                    && loopDown != true) {
                 x = gun.x + 50;
                 y = gun.y;
                 loopUp = true;
@@ -144,31 +150,36 @@ public class Bullet extends Enity{
                 }
             }
 
-            if (keyHander.down_Pressed == true && loopRight != true && loopLeft != true && loopUp != true && loopDown != true) {
+            if (keyHander.down_Pressed == true && loopRight != true && loopLeft != true && loopUp != true
+                    && loopDown != true) {
                 x = gun.x + 40;
                 y = gun.y + 50;
                 loopDown = true;
             }
             if (loopDown == true) {
                 y += bulletSpeed;
-                if (y > panel.boardHeight) {
+                if (y > panel.getMapHeight()) {
                     return true;
                 }
             }
         }
-        attackArea = new Rectangle(x,y,width,height);
+        attackArea = new Rectangle(x, y, width, height);
         return false;
     }
+
     public Rectangle getAttackArea() {
         return attackArea;
     }
 
-
     public int getDamage() {
         return damage;
     }
-    public void draw (Graphics2D g2){
+
+    public void draw(Graphics2D g2, int viewpointX, int viewpointY) {
         BufferedImage image = null;
+        int drawX = x - viewpointX;
+        int drawY = y - viewpointY;
+
         if (loopRight == true) {
             image = bulletRight;
         } else if (loopLeft == true) {
@@ -178,8 +189,14 @@ public class Bullet extends Enity{
         } else if (loopDown == true) {
             image = bulletDown;
         }
-        g2.drawImage(image, x, y, null);
+        if (drawX >= -width && drawX <= panel.boardWidth + width && drawY >= -height
+                && drawY <= panel.boardHeight + height) {
+            if (image != null) {
+                g2.drawImage(image, drawX, drawY, width, height, null);
+            }
+        }
     }
+
     private boolean isProcessed = false;
 
     public boolean isProcessed() {

@@ -5,18 +5,40 @@ import enity.Player;
 import main.KeyHander;
 import main.Panel;
 import enity.Bullet;
+import Tile.TileManager;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Random;
+import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
+import java.util.Queue;
+import java.util.LinkedList;
+
+class PathNode {
+    int x, y;
+    PathNode parent;
+
+    public PathNode(int x, int y, PathNode parent) {
+        this.x = x;
+        this.y = y;
+        this.parent = parent;
+    }
+}
 
 public class Warrior extends Enity {
     int heart = 2;
     public int speed = 10;
     int distance_attack = 70;
     private boolean isDead = false;
+    private TileManager tileM;
+    List<PathNode> path_bsf;
+    private Map<String, List<PathNode>> bfsCache;
 
     private long spamMonsterTimer;
 
@@ -24,10 +46,12 @@ public class Warrior extends Enity {
     KeyHander keyHander;
     Player player;
 
-    public Warrior(Player player) {
+    public Warrior(Player player, TileManager tileM) {
         this.panel = player.panel;
         this.keyHander = player.keyHander;
         this.player = player;
+        this.tileM = tileM;
+        this.bfsCache = new HashMap<>();
 
         setDefaltValues_Warrior();
         getWarriorImage();
@@ -36,24 +60,30 @@ public class Warrior extends Enity {
         spamMonsterTimer = System.nanoTime();
     }
 
+    private String generateCacheKey(int startX, int startY, int goalX, int goalY) {
+        return startX + "," + startY + "->" + goalX + "," + goalY;
+    }
+
     public void setDefaltValues_Warrior() {
         width = panel.tileSize * 2;
         height = panel.tileSize * 2;
 
         Random rand = new Random();
+        int mapWidth = panel.tileM.mapCol * panel.tileSize;
+        int mapHeight = panel.tileM.mapRow * panel.tileSize;
         int randomPosition = rand.nextInt(4) + 1;
         if (randomPosition == 1) {
             y = 0 - height;
-            x = rand.nextInt(panel.boardWidth + 1);
+            x = rand.nextInt(Math.max(1, mapWidth));
         } else if (randomPosition == 2) {
-            y = panel.boardHeight - height - 1; // ensure it's inside the playable field
-            x = rand.nextInt(panel.boardWidth - width);
+            y = mapHeight - height - 1;
+            x = rand.nextInt(Math.max(1, mapWidth - width));
         } else if (randomPosition == 3) {
-            x = panel.boardWidth;
-            y = rand.nextInt(panel.boardHeight + 1);
-        } else if (randomPosition == 4) {
+            x = mapWidth;
+            y = rand.nextInt(Math.max(1, mapHeight));
+        } else { // 4
             x = 0 - width;
-            y = rand.nextInt(panel.boardHeight + 1);
+            y = rand.nextInt(Math.max(1, mapHeight));
         }
 
         attackArea = new Rectangle(x, y, width, height);
@@ -239,10 +269,81 @@ public class Warrior extends Enity {
     public void update1() {
         long currentTime = System.nanoTime();
         if (currentTime - spamMonsterTimer > 1500000000L) {
-            Panel.warriors.add(new Warrior(this.player));
+            Panel.warriors.add(new Warrior(this.player, this.tileM));
             spamMonsterTimer = currentTime;
         }
     }
+
+    public List<PathNode> bfs(int startX, int startY, int goalX, int goalY, boolean[][] walkable) {
+        if (walkable == null || walkable.length == 0 || walkable[0].length == 0) return null;
+        String cacheKey = generateCacheKey(startX, startY, goalX, goalY);
+        if (bfsCache.containsKey(cacheKey)) {
+            return bfsCache.get(cacheKey);
+        }
+
+        int cols = walkable.length;
+        int rows = walkable[0].length;
+
+        if (startX < 0 || startY < 0 || startX >= cols || startY >= rows ||
+                goalX < 0 || goalY < 0 || goalX >= cols || goalY >= rows) {
+            return null;
+        }
+
+        boolean[][] visited = new boolean[cols][rows];
+        Queue<PathNode> queue = new LinkedList<>();
+        queue.add(new PathNode(startX, startY, null));
+        visited[startX][startY] = true;
+
+        int[] dx = {-1, 1, 0, 0}; // trái, phải
+        int[] dy = {0, 0, -1, 1}; // lên, xuống
+
+        while (!queue.isEmpty()) {
+            PathNode current = queue.poll();
+
+            if (current.x == goalX && current.y == goalY) {
+                List<PathNode> path = new ArrayList<>();
+                for (PathNode p = current; p != null; p = p.parent) {
+                    path.add(p);
+                }
+                Collections.reverse(path);
+                bfsCache.put(cacheKey, path);
+                return path;
+            }
+
+            for (int i = 0; i < 4; i++) {
+                int nx = current.x + dx[i];
+                int ny = current.y + dy[i];
+
+                if (nx >= 0 && ny >= 0 && nx < cols && ny < rows && walkable[nx][ny] && !visited[nx][ny]) {
+                    visited[nx][ny] = true;
+                    queue.add(new PathNode(nx, ny, current));
+                }
+            }
+        }
+        bfsCache.put(cacheKey, null);
+        return null;
+    }
+    
+    public void clearBfsCache() {
+        bfsCache.clear();
+    }
+/// ////////////// debug only
+//    public void printWalkableMap() {
+//        boolean[][] walkableMap = tileM.getWalkableMap();
+//        int cols = walkableMap.length;
+//        int rows = walkableMap[0].length;
+//
+//        for (int row = 0; row < rows; row++) {
+//            for (int col = 0; col < cols; col++) {
+//                if (walkableMap[col][row]) {
+//                    System.out.print("."); // Có thể đi
+//                } else {
+//                    System.out.print("#"); // Không thể đi
+//                }
+//            }
+//            System.out.println(); // Xuống dòng sau mỗi hàng
+//        }
+//    }
 
     public boolean update2() {
         double distance_to_playerX = player.x - x;
@@ -288,13 +389,8 @@ public class Warrior extends Enity {
         attackArea = new Rectangle(x, y, width, height);
         damageArea = new Rectangle(x, y, width, height);
 
-        if ((action == "attack1Right" || action == "attack1Left") && (action != "death")
-                && (player.damageArea.intersects(this.attackArea))) {
-            if (player.heart <= 0) {
-                player.action = "death";
-            } else {
-                player.action = "hurt";
-            }
+        if ((action == "attack1Right" || action == "attack1Left") && (action != "death") && (this.attackArea.intersects(player.damageArea))) {
+            player.takeDamage(0.5f);
         }
 
         if (!(action == "hurt" || action == "death")) {
@@ -313,11 +409,56 @@ public class Warrior extends Enity {
                         spriteNum_5Frame = 1;
                     }
                     spriteCounter_5Frame = 0;
-                    if (!collisionOn) {
+                    if(!collisionOn) {
                         x += speedX;
                         worldX = x;
                         y += speedY;
                         worldY = y;
+                    } else {
+                        // Get tile coordinates
+                        int tileSize = panel.tileSize;
+                        int startTileX = Math.max(0, Math.min(x / tileSize, panel.tileM.mapCol - 1));
+                        int startTileY = Math.max(0, Math.min(y / tileSize, panel.tileM.mapRow - 1));
+                        int goalTileX = Math.max(0, Math.min(player.x / tileSize, panel.tileM.mapCol - 1));
+                        int goalTileY = Math.max(0, Math.min(player.y / tileSize, panel.tileM.mapRow - 1));
+
+                        if (panel.tileM.mapCol == 0 || panel.tileM.mapRow == 0) return true;
+                        if (startTileX < 0 || startTileY < 0 || startTileX >= panel.tileM.mapCol || startTileY >= panel.tileM.mapRow ||
+                            goalTileX < 0 || goalTileY < 0 || goalTileX >= panel.tileM.mapCol || goalTileY >= panel.tileM.mapRow) {
+                            return true; // bỏ qua nếu ngoài map
+                        }
+
+                        // Prepare the walkable map
+                        boolean[][] walkable = tileM != null ? tileM.getWalkableMap() : null;
+                        if (walkable == null) return true;
+
+                        List<PathNode> path = bfs(startTileX, startTileY, goalTileX, goalTileY, walkable);
+                        path_bsf = path;
+                        if (path != null && path.size() > 1) {
+                            PathNode nextStep = path.get(1);
+                            double targetX = nextStep.x * tileSize + tileSize / 4.0;
+                            double targetY = nextStep.y * tileSize + tileSize / 1.5;
+
+                            double deltaX = targetX - x;
+                            double deltaY = targetY - y;
+                            double distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                            if (distance == 0) distance = 1;
+
+                            x += (speed / distance) * deltaX;
+                            y += (speed / distance) * deltaY;
+
+                            worldX = x;
+                            worldY = y;
+                            //printWalkableMap();
+
+//                            panel.cChecker.checkTileWarrior(this, speedX, speedY);
+//                            if (!collisionOn) {
+//                                x += speedX;
+//                                worldX = x;
+//                                y += speedY;
+//                                worldY = y;
+//                            }
+                        }
                     }
                 }
             }
@@ -405,7 +546,7 @@ public class Warrior extends Enity {
         return false;
     }
 
-    public void draw(Graphics2D g2) {
+    public void draw(Graphics2D g2, int viewpointX, int viewpointY) {
         BufferedImage image = null;
 
         if (action == "moveRight") {
@@ -608,13 +749,29 @@ public class Warrior extends Enity {
             }
         }
 
-        g2.drawImage(image, x, y, width, height, null);
+        int drawX = x - viewpointX;
+        int drawY = y - viewpointY;
+
+        if (image != null) g2.drawImage(image, drawX, drawY, width, height, null);
 
         // Draw collision area
         g2.setColor(new Color(255, 0, 0, 100));
-        g2.fillRect(x + collisionArea.x, y + collisionArea.y,
-                collisionArea.width, collisionArea.height);
+        g2.drawRect(worldX + collisionArea.x - viewpointX,
+                    drawY + collisionArea.y,
+                    collisionArea.width,
+                    collisionArea.height);
 
+        ///  ////////////////////////////////////
+        if (path_bsf != null) {
+            for (PathNode node : path_bsf) {
+                int tileX = node.x;
+                int tileY = node.y;
+                int screenX = tileX * panel.tileSize - viewpointX;
+                int screenY = tileY * panel.tileSize - viewpointY;
+                g2.setColor(new Color(0, 255, 157, 128));
+                g2.fillRect(screenX, screenY, panel.tileSize, panel.tileSize);
+            }
+        }
     }
 
     public Rectangle getDamageArea() {

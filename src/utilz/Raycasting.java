@@ -5,11 +5,10 @@ import Tile.TileManager;
 
 public class Raycasting {
     /**
-     * dùng raycasting để Boss phát hiện Player và đuổi theo
-     * Kiểm tra xem từ source có thể nhìn thấy target hay không
+     * Using raycasting Boss can see Player and chasing
      * 
-     * @param source     Vị trí của Boss
-     * @param target     Vị trí của Player
+     * @param source     Position's Boss
+     * @param target     Position's Player
      * @param mapTileNum Bản đồ va chạm (true nếu là vật cản)
      * @param tileSize   Kích thước mỗi tile
      * @return true nếu có thể nhìn thấy
@@ -37,13 +36,11 @@ public class Raycasting {
                 return false; // Out of bounds, cannot see target
             }
 
-            // Kiểm tra nếu tile là vật cản
             int tileNum = mapTileNum[tileX][tileY];
             if (tileManager.tile[tileNum].collision) {
                 return false;
             }
 
-            // Nếu tới đích
             if (x0 == x1 && y0 == y1) break;
 
             int e2 = 2 * err;
