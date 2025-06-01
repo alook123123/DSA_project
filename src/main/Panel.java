@@ -66,6 +66,7 @@ public class Panel extends JPanel implements Runnable {
 
     private boolean showBossMessage = false; // Trạng thái hiển thị thông báo
     private long bossMessageStartTime = 0;
+    private boolean bossMessageShownOnce = false;
 
     public Panel(JPanel mainPanel, CardLayout cardLayout, Main mainFrame) {
         this.mainFrame = mainFrame;
@@ -190,12 +191,21 @@ public class Panel extends JPanel implements Runnable {
                 startTime = System.currentTimeMillis();
             }
 
-            if (System.currentTimeMillis() - startTime >= 20000) { // Boss: 200
-                if (!stopWarriorCreation) {
-                    showBossMessage = true; // Kích hoạt thông báo
+            if (System.currentTimeMillis() - startTime >= 15000) { // Boss: 200
+//                if (!stopWarriorCreation) {
+//                    showBossMessage = true; // Kích hoạt thông báo
+//                    bossMessageStartTime = System.currentTimeMillis();
+//
+//                    //clearWarriors();
+//                    //stopWarriorCreation = true;
+//                    createBoss();
+//                }
+                if (!bossMessageShownOnce) {
+                    showBossMessage = true;
                     bossMessageStartTime = System.currentTimeMillis();
-                    clearWarriors();
-                    stopWarriorCreation = true;
+                    bossMessageShownOnce = true; // prevents repeating the message
+                }
+                if (!bossCreated) {
                     createBoss();
                 }
             }
@@ -217,6 +227,7 @@ public class Panel extends JPanel implements Runnable {
             if (activeBoss.update2()) {
                 activeBoss = null; // Xóa Boss khi hoạt ảnh chết hoàn tất.
                 bossCreated = false; // Cho phép tạo Boss mới nếu cần.
+                warriors.clear();
                 gameWon = true; // Player wins
                 sound.stopSound();
                 sound.playSound("victorymale.wav"); // Play victory sound

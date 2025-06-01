@@ -68,7 +68,7 @@ public class MenuPanel extends JPanel {
 
                         gamePanel.setMapType("Tiny");
 
-                        gamePanel.setBackgroundImage("/background/main3_bg.png");
+                        gamePanel.setBackgroundImage("/background/main7_bg.png");
 
                         gamePanel.startGameThread();
                     }

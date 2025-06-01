@@ -31,13 +31,13 @@ public class Main extends JFrame {
         mainPanel.add(mapPanel, "Map");
 
         layeredPane = new JLayeredPane();
-        int width = 1280, height = 720;
+        int width = 1008, height = 720;
         mainPanel.setBounds(0, 0, width, height);
         layeredPane.add(mainPanel, JLayeredPane.DEFAULT_LAYER);
 
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         int scaledWidth = (int) (screenSize.width * 0.9);
-        int scaledHeight = (int) (screenSize.height * 0.9);
+        int scaledHeight = (int) (screenSize.height * 1);
 
         gameOverPanel = new GameOverPanel(this, () -> {
             gamePanel.resetGame();
@@ -53,7 +53,7 @@ public class Main extends JFrame {
         this.setContentPane(layeredPane);
         this.pack();
         this.setPreferredSize(new Dimension(scaledWidth, scaledHeight));
-        this.setSize(scaledWidth, scaledHeight);
+        this.setSize(1008, 720);
         this.setLocationRelativeTo(null);
         this.setVisible(true);
 

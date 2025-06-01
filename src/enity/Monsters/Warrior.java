@@ -269,6 +269,7 @@ public class Warrior extends Enity {
         damageArea = new Rectangle(x, y, width, height);
 
         if (("attack1Right".equals(action) || "attack1Left".equals(action)) && !"death".equals(action) && player.damageArea.intersects(this.attackArea)) {
+            player.takeDamage(1);
             if (player.heart <= 0) {
                 player.action = "death";
             } else {
@@ -625,19 +626,21 @@ public class Warrior extends Enity {
 
         g2.drawImage(image, x - 55, y - 55, width, height, null);
 
-        g2.setColor(new Color(255, 0, 0));
-        g2.fillRect(x + collisionArea.x, y + collisionArea.y, collisionArea.width, collisionArea.height);
+            //draw collision
+//        g2.setColor(new Color(255, 0, 0));
+//        g2.fillRect(x + collisionArea.x, y + collisionArea.y, collisionArea.width, collisionArea.height);
 
-        if (path != null) {
-            for (Point node : path) {
-                int tileX = node.x;
-                int tileY = node.y;
-                int screenX = tileX * panel.tileSize;
-                int screenY = tileY * panel.tileSize;
-                g2.setColor(new Color(0, 255, 157, 128));
-                g2.fillRect(screenX, screenY, panel.tileSize, panel.tileSize);
-            }
-        }
+        //draw path
+//        if (path != null) {
+//            for (Point node : path) {
+//                int tileX = node.x;
+//                int tileY = node.y;
+//                int screenX = tileX * panel.tileSize;
+//                int screenY = tileY * panel.tileSize;
+//                g2.setColor(new Color(0, 255, 157, 128));
+//                g2.fillRect(screenX, screenY, panel.tileSize, panel.tileSize);
+//            }
+//        }
     }
 
     public Rectangle getDamageArea() {
