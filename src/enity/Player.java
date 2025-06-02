@@ -11,7 +11,7 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 
 public class Player extends Enity {
-    public int heart = 10;
+    public int heart = 10000;
     public int initialX, initialY, maxHealth;
     public Panel panel;
     public KeyHander keyHander;
@@ -130,7 +130,6 @@ public class Player extends Enity {
     
     int count;
     public void update() {
-
         damageArea = new Rectangle(x,y,width,height);
 
         //check tile collision
@@ -460,15 +459,13 @@ public class Player extends Enity {
 
         int drawX = x - viewpointX;
         int drawY = y - viewpointY;
-
         if (image != null) g2.drawImage(image, drawX, drawY, width, height, null);
-
         //draw CollisionArea rectangle
-//        g2.setColor(Color.RED);
-//         g2.drawRect(panel.cChecker.getPlayerLeftWorldX(),
-//                 panel.cChecker.getPlayerTopWorldY(),
-//                 panel.cChecker.getPlayerRightWorldX()- panel.cChecker.getPlayerLeftWorldX(),
-//                 panel.cChecker.getPlayerBottomWorldY() - panel.cChecker.getPlayerTopWorldY());
+        //g2.setColor(Color.RED);
+        // g2.drawRect(panel.cChecker.getPlayerLeftWorldX(),
+        //         panel.cChecker.getPlayerTopWorldY(),
+        //         panel.cChecker.getPlayerRightWorldX()- panel.cChecker.getPlayerLeftWorldX(),
+        //         panel.cChecker.getPlayerBottomWorldY() - panel.cChecker.getPlayerTopWorldY());
 
         //draw damageArea rectangle
 //        g2.drawRect(damageArea.x, damageArea.y, damageArea.width, damageArea.height);

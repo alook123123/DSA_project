@@ -16,20 +16,10 @@ import java.util.Random;
 import java.util.List;
 
 public class Boss extends Enity {
-    float heart = 5;
-    int speed = 25;
-    float followSpeed = 2f;
+    int heart = 5;
+    int speed = 3;
     int distance_attack = 70;
     private boolean isDead = false;
-
-    int count = 0;
-    int moveX = 0 ;
-    int moveY = 0;
-    int lastDirectionX = 0;
-    int lastDirectionY = 0;
-    Random rand = new Random();
-
-
 
     private long lastAttackTime = 0;
     private long startTime = 0;
@@ -335,8 +325,7 @@ public class Boss extends Enity {
     public void takeDamage(int damage) {
         if (isDead)
             return;
-        if (canSeePlayer()) heart -= damage;
-        else heart -= 0.5f;
+        heart -= damage;
         action = "stand";
         if (heart <= 0) {
             heart = 0;
@@ -370,9 +359,6 @@ public class Boss extends Enity {
         double speedX = (speed / distance_to_player) * distance_to_playerX;
         double speedY = (speed / distance_to_player) * distance_to_playerY;
 
-        double speedX2 = (followSpeed / distance_to_player) * distance_to_playerX;
-        double speedY2 = (followSpeed / distance_to_player) * distance_to_playerY;
-
         if (isDead) {
             return true;
         }
@@ -386,10 +372,9 @@ public class Boss extends Enity {
             }
         } else {
             if (canSeePlayer()) {
-
-                double newX = x + speedX2;
-                double newY = y + speedY2;
-                panel.cChecker.checkTileCollisionBoss(this, (int)speedX2, (int)speedY2);
+                double newX = x + speedX;
+                double newY = y + speedY;
+                panel.cChecker.checkTileCollisionBoss(this, (int)speedX, (int)speedY);
                 if (!collisionOn) {
                     x = (int) newX;
                     y = (int) newY;
@@ -399,62 +384,15 @@ public class Boss extends Enity {
                     worldX = x;
                     worldY = y;
                 } else {
-
                     // Đảo hướng nếu va chạm
-                    int[][] diagonalDirs = {
-                            {1, 1}, {-1, 1}, {1, -1}, {-1, -1}
-                    };
-                    int attempts = 0;
-                    do {
-                        int index = rand.nextInt(diagonalDirs.length);
-                        directionX = diagonalDirs[index][0];
-                        directionY = diagonalDirs[index][1];
-                        attempts++;
-                    } while (
-                            directionX == -lastDirectionX && directionY == -lastDirectionY &&
-                                    attempts < 10
-                    );
-
-                    lastDirectionX = directionX;
-                    lastDirectionY = directionY;
-
-
+                    directionX *= -1;
+                    directionY *= -1;
                 }
             } else {
                 // Use Algorithm to find path
-                if (collisionOn) {
-                    int[][] diagonalDirs = {
-                            {1, 1}, {-1, 1}, {1, -1}, {-1, -1}
-                    };
-                    int attempts = 0;
-                    do {
-                        int index = rand.nextInt(diagonalDirs.length);
-                        directionX = diagonalDirs[index][0];
-                        directionY = diagonalDirs[index][1];
-                        attempts++;
-                    } while (
-                            directionX == -lastDirectionX && directionY == -lastDirectionY &&
-                                    attempts < 10
-                    );
 
-                    lastDirectionX = directionX;
-                    lastDirectionY = directionY;
-                }
-
-                 moveX = speed * directionX;
-                 moveY = speed * directionY;
-
-//                if(moveX  ==  moveY){
-//                    count ++;
-//                    if (count >= 10){
-//                        moveY = speed * directionY ;
-//                        moveX = speed * directionX;
-//                        count =0;
-//                    }
-//                }
-
-                System.out.println(moveX + " " + moveX+ " "+ count);
-
+                int moveX = speed * directionX;
+                int moveY = speed * directionY;
                 panel.cChecker.checkTileCollisionBoss(this, moveX, moveY);
                 if (!collisionOn) {
                     if (x + moveX <= 0 || x + moveX + width >= mapWidth) directionX *= -1;
@@ -932,15 +870,10 @@ public class Boss extends Enity {
         if (image != null) g2.drawImage(image, drawX, drawY, width, height, null);
 
         // Draw collision
-//        g2.setColor(Color.RED);
-//        g2.drawRect(worldX + collisionArea.x - viewpointX,
-//                drawY + collisionArea.y,
-//                collisionArea.width,
-//                collisionArea.height);
-    }
-
-    public int setHeart(int heart)
-    {
-        return heart;
+        g2.setColor(Color.RED);
+        g2.drawRect(worldX + collisionArea.x - viewpointX,
+                drawY + collisionArea.y,
+                collisionArea.width,
+                collisionArea.height);
     }
 }

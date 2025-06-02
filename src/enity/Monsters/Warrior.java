@@ -202,6 +202,12 @@ public class Warrior extends Enity {
         int goalTileX = (int) (player.x / panel.tileSize);
         int goalTileY = (int) (player.y / panel.tileSize);
 
+//        if (startTileX < 0 || startTileY < 0 || startTileX >= panel.maxScreenCol || startTileY >= panel.maxScreenRow ||
+//                goalTileX < 0 || goalTileY < 0 || goalTileX >= panel.maxScreenCol || goalTileY >= panel.maxScreenRow) {
+//            path = null;
+//            return;
+//        }
+
         AStar aStar = new AStar(tileM.getWalkableMap());
         path = aStar.findPath(startTileX, startTileY, goalTileX, goalTileY);
         pathIndex = 0;
@@ -217,7 +223,7 @@ public class Warrior extends Enity {
         double distance_to_playerX = player.x - x;
         double distance_to_player = Math.sqrt(distance_to_playerX * distance_to_playerX + (player.y - y) * (player.y - y));
         /// //////////////////
-        //System.out.println("Warrior at: (" + x + ", " + y + ")");
+        System.out.println("Warrior at: (" + x + ", " + y + ")");
         if (isDead) {
             return true;
         }
@@ -228,7 +234,7 @@ public class Warrior extends Enity {
             double targetX = nextStep.x * panel.tileSize+ panel.tileSize / 2.0;
             double targetY = nextStep.y * panel.tileSize+ panel.tileSize / 2.0;
 
-            //System.out.println("Target: (" + targetX + ", " + targetY + ")");
+            System.out.println("Target: (" + targetX + ", " + targetY + ")");
 
             double deltaX = targetX - x;
             double deltaY = targetY - y;
@@ -237,6 +243,18 @@ public class Warrior extends Enity {
             if (distance == 0) distance = 1;
             double proposedX = x + (deltaX / distance) * moveDistance;
             double proposedY = y + (deltaY / distance) * moveDistance;
+//            System.out.println("proposedX: " + proposedX);
+//            System.out.println("proposedY: " + proposedY);
+
+//            // Giới hạn di chuyển để collisionArea nằm trong ô
+//            int tileX = (int) (proposedX + collisionArea.x + collisionArea.width / 2) / panel.tileSize;
+//            int tileY = (int) (proposedY + collisionArea.y + collisionArea.height / 2) / panel.tileSize;
+//            if (tileX < 0 || tileX >= panel.maxScreenCol || tileY < 0 || tileY >= panel.maxScreenRow ||
+//                    !tileM.getWalkableMap()[tileX][tileY]) {
+//                moveDistance = Math.min(moveDistance, distance - 1); // Giảm di chuyển nếu gần ranh giới
+//                proposedX = x + (deltaX / distance) * moveDistance;
+//                proposedY = y + (deltaY / distance) * moveDistance;
+//            }
 
             panel.cChecker.checkTileWarrior(this, proposedX - x, proposedY - y);
         }
@@ -269,7 +287,6 @@ public class Warrior extends Enity {
         damageArea = new Rectangle(x, y, width, height);
 
         if (("attack1Right".equals(action) || "attack1Left".equals(action)) && !"death".equals(action) && player.damageArea.intersects(this.attackArea)) {
-            player.takeDamage(1);
             if (player.heart <= 0) {
                 player.action = "death";
             } else {
@@ -310,8 +327,8 @@ public class Warrior extends Enity {
                             y = (int) targetY;
                             pathIndex++;
                         } else {
-                            x += (int) ((deltaX / distance) * moveDistance);
-                            y += (int) ((deltaY / distance) * moveDistance);
+                            x += (deltaX / distance) * moveDistance;
+                            y += (deltaY / distance) * moveDistance;
                         }
 
                         worldX = x;
@@ -358,8 +375,8 @@ public class Warrior extends Enity {
                             y = (int) targetY;
                             pathIndex++;
                         } else {
-                            x += (int) ((deltaX / distance) * moveDistance);
-                            y += (int) ((deltaY / distance) * moveDistance);
+                            x += (deltaX / distance) * moveDistance;
+                            y += (deltaY / distance) * moveDistance;
                         }
 
                         worldX = x;
@@ -626,21 +643,19 @@ public class Warrior extends Enity {
 
         g2.drawImage(image, x - 55, y - 55, width, height, null);
 
-            //draw collision
-//        g2.setColor(new Color(255, 0, 0));
-//        g2.fillRect(x + collisionArea.x, y + collisionArea.y, collisionArea.width, collisionArea.height);
+        g2.setColor(new Color(195, 154, 154, 100));
+        g2.fillRect(x + collisionArea.x, y + collisionArea.y, collisionArea.width, collisionArea.height);
 
-        //draw path
-//        if (path != null) {
-//            for (Point node : path) {
-//                int tileX = node.x;
-//                int tileY = node.y;
-//                int screenX = tileX * panel.tileSize;
-//                int screenY = tileY * panel.tileSize;
-//                g2.setColor(new Color(0, 255, 157, 128));
-//                g2.fillRect(screenX, screenY, panel.tileSize, panel.tileSize);
-//            }
-//        }
+        if (path != null) {
+            for (Point node : path) {
+                int tileX = node.x;
+                int tileY = node.y;
+                int screenX = tileX * panel.tileSize;
+                int screenY = tileY * panel.tileSize;
+                g2.setColor(new Color(0, 255, 157, 128));
+                g2.fillRect(screenX, screenY, panel.tileSize, panel.tileSize);
+            }
+        }
     }
 
     public Rectangle getDamageArea() {

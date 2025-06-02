@@ -146,46 +146,28 @@ public class CollisionChecker {
     public boolean isCollisionRight() { return collisionRight; }
 
     public void checkTileWarrior(Warrior warrior, double speedX, double speedY) {
-//        warrior.collisionOn = false;
-//
-//        int futureX = (int)(warrior.worldX + speedX + warrior.collisionArea.x);
-//        int futureY = (int)(warrior.worldY + speedY + warrior.collisionArea.y);
-//
-//        int leftCol = futureX / panel.tileSize;
-//        int rightCol = (futureX + warrior.collisionArea.width) / panel.tileSize;
-//        int topRow = futureY / panel.tileSize;
-//        int bottomRow = (futureY + warrior.collisionArea.height) / panel.tileSize;
-//
-//        try {
-//            int tile1 = panel.tileM.mapTileNum[leftCol][topRow];
-//            int tile2 = panel.tileM.mapTileNum[rightCol][topRow];
-//            int tile3 = panel.tileM.mapTileNum[leftCol][bottomRow];
-//            int tile4 = panel.tileM.mapTileNum[rightCol][bottomRow];
-//
-//            if (panel.tileM.tile[tile1].collision || panel.tileM.tile[tile2].collision ||
-//                    panel.tileM.tile[tile3].collision || panel.tileM.tile[tile4].collision) {
-//                warrior.collisionOn = true;
-//            }
-//        } catch (ArrayIndexOutOfBoundsException e) {
-//            warrior.collisionOn = true; // treat out of bounds as solid
-//        }
         warrior.collisionOn = false;
 
-        // Tính tâm của collisionArea sau khi di chuyển
-        int futureX = (int) (warrior.worldX + speedX + warrior.collisionArea.x + warrior.collisionArea.width / 2);
-        int futureY = (int) (warrior.worldY + speedY + warrior.collisionArea.y + warrior.collisionArea.height / 2);
+        int futureX = (int)(warrior.worldX + speedX + warrior.collisionArea.x);
+        int futureY = (int)(warrior.worldY + speedY + warrior.collisionArea.y);
 
-        // Kiểm tra ô chứa tâm collisionArea
-        int centerCol = futureX / panel.tileSize;
-        int centerRow = futureY / panel.tileSize;
+        int leftCol = futureX / panel.tileSize;
+        int rightCol = (futureX + warrior.collisionArea.width) / panel.tileSize;
+        int topRow = futureY / panel.tileSize;
+        int bottomRow = (futureY + warrior.collisionArea.height) / panel.tileSize;
 
         try {
-            int tile = panel.tileM.mapTileNum[centerCol][centerRow];
-            if (panel.tileM.tile[tile].collision) {
+            int tile1 = panel.tileM.mapTileNum[leftCol][topRow];
+            int tile2 = panel.tileM.mapTileNum[rightCol][topRow];
+            int tile3 = panel.tileM.mapTileNum[leftCol][bottomRow];
+            int tile4 = panel.tileM.mapTileNum[rightCol][bottomRow];
+
+            if (panel.tileM.tile[tile1].collision || panel.tileM.tile[tile2].collision ||
+                    panel.tileM.tile[tile3].collision || panel.tileM.tile[tile4].collision) {
                 warrior.collisionOn = true;
             }
         } catch (ArrayIndexOutOfBoundsException e) {
-            warrior.collisionOn = true; // Xử lý ngoài ranh giới như tường
+            warrior.collisionOn = true; // treat out of bounds as solid
         }
     }
 

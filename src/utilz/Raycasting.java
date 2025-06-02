@@ -18,9 +18,6 @@ public class Raycasting {
             throw new IllegalArgumentException("mapTileNum must not be null. Ensure it is initialized correctly in TileManager.");
         }
 
-        double distance = source.getLocation().distance(target.getLocation());
-        if (distance > 120) return false;
-
         int x0 = source.x + source.width / 2;
         int y0 = source.y + source.height / 2;
         int x1 = target.x + target.width / 2;

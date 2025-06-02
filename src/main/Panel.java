@@ -21,8 +21,8 @@ public class Panel extends JPanel implements Runnable {
     final int originalTileSize = 16;
     final int scale = 3;
     public final int tileSize = originalTileSize * scale;
-    public final int maxScreenCol = 30;//20 for smaller view but BUG
-    public final int maxScreenRow = 15;//14 for smaller view but BUG
+    public final int maxScreenCol = 20;
+    public final int maxScreenRow = 14;
     public final int boardWidth = maxScreenCol * tileSize;
     public final int boardHeight = maxScreenRow * tileSize;
 
@@ -66,23 +66,26 @@ public class Panel extends JPanel implements Runnable {
 
     private boolean showBossMessage = false; // Trạng thái hiển thị thông báo
     private long bossMessageStartTime = 0;
-    private boolean bossMessageShownOnce = false;
 
+    public TileManager tileManager;
     public Panel(JPanel mainPanel, CardLayout cardLayout, Main mainFrame) {
-        this.mainFrame = mainFrame;
-
-        tileM = new TileManager(this);
+        tileManager = new TileManager(this);
         this.setPreferredSize(new Dimension(boardWidth, boardHeight));
         this.setBackground(Color.darkGray);
         this.setDoubleBuffered(true);
         this.addKeyListener(keyHander);
         this.setFocusable(true);
+        if (tileManager.mapTileNum == null) {
+            System.out.println("mapTileNum is null in TileManager!");
+        } else {
+            System.out.println("mapTileNum initialized successfully.");
+        }
+
         // sound.playLoopedSound("game-music.wav");
 
         // Load the background image
         try {
-            backgroundImage = ImageIO
-                    .read(Objects.requireNonNull(getClass().getResourceAsStream("/background/main_bg.png")));
+            backgroundImage = ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream("/background/main_bg.png")));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -156,26 +159,28 @@ public class Panel extends JPanel implements Runnable {
             }
 
             if (showBossMessage) {
-                if (System.currentTimeMillis() - bossMessageStartTime >= 2000) { // Hiển thị trong 3 giây
+                if (System.currentTimeMillis() - bossMessageStartTime >= 2000) { // Hiển thị trong 2 giây
                     showBossMessage = false; // Ẩn thông báo
                 }
             }
 
             for (int i = 0; i < bullets.size(); i++) {
                 Bullet bullet = bullets.get(i);
-                // Kiểm tra va chạm với warriors
-                for (Warrior warrior : warriors) {
+                for (int j = 0; j < warriors.size(); j++) {
+                    Warrior warrior = warriors.get(j);
                     warrior.checkCollisionWithBullet(bullet);
                 }
-                // Kiểm tra va chạm với boss
-                if (activeBoss != null) {
-                    activeBoss.checkCollisionWithBullet(bullet);
-                }
-                // Cập nhật và xóa đạn nếu cần
+
                 if (bullet.isProcessed() || bullet.update2()) {
                     System.out.println("Bullet removed at index " + i + ", x=" + bullet.x + ", y=" + bullet.y); // Debug
                     bullets.remove(i);
                     i--;
+                }
+            }
+
+            for (int i = 0; i < bullets.size(); i++) {
+                if (bullets.get(i).update2()) {
+                    bullets.remove(i);
                 }
             }
 
@@ -191,21 +196,13 @@ public class Panel extends JPanel implements Runnable {
                 startTime = System.currentTimeMillis();
             }
 
-            if (System.currentTimeMillis() - startTime >= 15000) { // Boss: 200
-//                if (!stopWarriorCreation) {
-//                    showBossMessage = true; // Kích hoạt thông báo
-//                    bossMessageStartTime = System.currentTimeMillis();
-//
-//                    //clearWarriors();
-//                    //stopWarriorCreation = true;
-//                    createBoss();
-//                }
-                if (!bossMessageShownOnce) {
-                    showBossMessage = true;
+
+            if (System.currentTimeMillis() - startTime >= 200) {
+                if (!stopWarriorCreation) {
+                    showBossMessage = true; // Kích hoạt thông báo
                     bossMessageStartTime = System.currentTimeMillis();
-                    bossMessageShownOnce = true; // prevents repeating the message
-                }
-                if (!bossCreated) {
+                    clearWarriors();
+                    stopWarriorCreation = true;
                     createBoss();
                 }
             }
@@ -216,9 +213,8 @@ public class Panel extends JPanel implements Runnable {
             warriors.clear();
             activeBoss = null;
             gameOver = true; // Đánh dấu game over
-            if (mainFrame != null)
-                mainFrame.showGameOver();
         }
+
         if (activeBoss != null) {
             for (Bullet bullet : bullets) {
                 activeBoss.checkCollisionWithBullet(bullet);
@@ -227,39 +223,11 @@ public class Panel extends JPanel implements Runnable {
             if (activeBoss.update2()) {
                 activeBoss = null; // Xóa Boss khi hoạt ảnh chết hoàn tất.
                 bossCreated = false; // Cho phép tạo Boss mới nếu cần.
-                warriors.clear();
                 gameWon = true; // Player wins
                 sound.stopSound();
                 sound.playSound("victorymale.wav"); // Play victory sound
             }
         }
-        updateViewpoint();
-    }
-
-    public int getMapWidth() {
-        return tileM.mapCol * tileSize;
-    }
-
-    public int getMapHeight() {
-        return tileM.mapRow * tileSize;
-    }
-
-    public void updateViewpoint() {
-        int mapWidth = getMapWidth();
-        int mapHeight = getMapHeight();
-
-        viewpointX = player.x + player.width / 2 - boardWidth / 2;
-        viewpointY = player.y + player.height / 2 - boardHeight / 2;
-
-        if (mapWidth <= boardWidth)
-            viewpointX = 0;
-        else
-            viewpointX = Math.max(0, Math.min(viewpointX, mapWidth - boardWidth));
-
-        if (mapHeight <= boardHeight)
-            viewpointY = 0;
-        else
-            viewpointY = Math.max(0, Math.min(viewpointY, mapHeight - boardHeight));
     }
 
     private void clearWarriors() {
@@ -286,7 +254,6 @@ public class Panel extends JPanel implements Runnable {
         heart.reset();
         bullets.clear();
         warriors.clear();
-
         activeBoss = null;
         stopWarriorCreation = false;
         bossCreated = false;
@@ -296,31 +263,13 @@ public class Panel extends JPanel implements Runnable {
         // sound.playLoopedSound("game-music.wav");
     }
 
-    @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
 
-        g2.setColor(Color.BLACK);
-        g2.fillRect(0, 0, getWidth(), getHeight());
-
-        int mapWidth = getMapWidth();
-        int mapHeight = getMapHeight();
-        int drawWidth = Math.min(boardWidth, mapWidth - viewpointX);
-        if (mapWidth <= boardWidth)
-            drawWidth = mapWidth;
-        int drawHeight = Math.min(boardHeight, mapHeight - viewpointY);
-        if (mapHeight <= boardHeight)
-            drawHeight = mapHeight;
-
         // Draw the background image
         if (backgroundImage != null) {
-            g2.drawImage(
-                    backgroundImage,
-                    0, 0, drawWidth, drawHeight,
-                    viewpointX, viewpointY,
-                    viewpointX + drawWidth, viewpointY + drawHeight,
-                    null);
+            g2.drawImage(backgroundImage, 0, 0, boardWidth, boardHeight, null);
         }
 
         tileM.draw(g2, viewpointX, viewpointY, boardWidth, boardHeight);
@@ -383,5 +332,12 @@ public class Panel extends JPanel implements Runnable {
             g2.drawString(restartMessage, restartX, restartY);
         }
         g2.dispose();
+    }
+    public int getMapWidth() {
+        return tileM.mapCol * tileSize;
+    }
+
+    public int getMapHeight() {
+        return tileM.mapRow * tileSize;
     }
 }
