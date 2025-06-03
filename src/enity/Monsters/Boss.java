@@ -17,7 +17,7 @@ import java.util.List;
 
 public class Boss extends Enity {
     float heart = 5;
-    int speed = 25;
+    int speed = 15;
     float followSpeed = 2f;
     int distance_attack = 70;
     private boolean isDead = false;

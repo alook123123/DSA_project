@@ -10,7 +10,6 @@ import enity.Player;
 import java.awt.*;
 
 public class CollisionChecker {
-
     public  Panel panel;
 
     private int playerLeftWorldX ;

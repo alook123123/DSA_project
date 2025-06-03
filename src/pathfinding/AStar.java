@@ -9,11 +9,11 @@ public class AStar {
     private int rows, cols;
 
     private static class Node {
-        int x, y;
-        int g;
-        int h;
-        int f;
-        Node parent;
+        int x, y;   //position of grid
+        int g;      // cost to node n from start
+        int h;      //
+        int f;      // the total estimated cost
+        Node parent;// reconstruct the path
 
         Node(int x, int y) {
             this.x = x;
@@ -41,6 +41,7 @@ public class AStar {
     }
 
     public List<Point> findPath(int startX, int startY, int goalX, int goalY) {
+        //Ensures both start and goal are inside the grid and goal is walkable.
         if (!isValid(startX, startY) || !isValid(goalX, goalY) || !walkableMap[goalX][goalY]) {
             return null;
         }
